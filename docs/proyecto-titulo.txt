@@ -1,0 +1,538 @@
+UNIVERSIDAD DE LAS AMÉRICAS
+FACULTAD DE INGENIERÍA Y NEGOCIOS
+
+
+
+TÍTULO PROYECTO: 
+
+ “Desarrollo de un Prototipo de Inteligencia Artificial para la Capacitación y Apoyo en Procesos Organizacionales”
+
+
+
+
+
+
+
+
+
+
+
+ANDRES AMAYA GARCES
+MARCO ORTIZ PLAZA
+JORGE SANTANDER HIDALGO 
+
+
+2025
+ 
+
+UNIVERSIDAD DE LAS AMÉRICAS
+FACULTAD DE INGENIERÍA Y NEGOCIOS
+
+
+
+“Título de Proyecto Definido”
+
+
+
+Profesor guía: 
+Académico (a): Cristian Rojas Catalan.
+
+
+
+
+
+
+
+
+
+
+XXXXXXXXXXXXXXXXXXXX 
+
+2025
+ 
+AGRADECIMIENTOS
+No está permitido incluir ningún tipo de declaración que pudiese ser considerada ofensiva.
+Sus agradecimientos no deben sobrepasar esta hoja.
+ 
+
+DEDICATORIA
+ 
+RESUMEN
+
+Es un resumen general del tema tratado en el informe. Debe contener principales objetivos, resultados y conclusiones. No debe tener más de una página.
+El mismo no debe tener más de 500 palabras y en espaciado sencillo.  (va en la versión final)
+
+
+ 
+ÍNDICE GENERAL
+
+Al inicio del documento se deberá incluir la Unidad de Índice General, en la cual se incluye el Índice de Contenidos, el Índice de Figuras y el Índice de Tablas; cada uno de éstos indicará claramente la página en que se ubica cada capítulo, subcapítulo, así como las figuras y tablas, según corresponda.
+
+
+ 
+ÍNDICE DE FIGURAS
+
+
+ 
+ÍNDICE DE TABLAS
+
+
+ 
+INTRODUCCIÓN
+
+Este proyecto de título explora la prefactibilidad de mejorar procesos organizacionales usando un prototipo basado en inteligencia artificial generativa. El objetivo es claro: analizar si tiene sentido, tanto en lo técnico como en lo operativo y estratégico, incorporar tecnología emergente que optimice la gestión del conocimiento y refuerce la capacitación interna en una organización moderna.
+Hoy, las empresas navegan en un ambiente donde la transformación digital, la automatización y la gestión inteligente de la información ya no son opcionales; son la base para mantenerse competitivos. Porter y Heppelmann (2019) lo dejan bastante claro: al integrar sistemas inteligentes en la estructura organizacional, no solo se gana eficiencia, también cambia la forma en que trabajamos y aprendemos dentro de las empresas. Esto abre paso a una productividad y colaboración de otro nivel.
+Pero aquí surge un problema conocido: muchas organizaciones dependen de procesos fragmentados y del conocimiento tácito de sus propios empleados. Eso complica la transferencia de información, la continuidad operativa y el desarrollo de nuevas capacidades internas (Nonaka & Takeuchi, 1995). Aquí es donde la IA generativa marca la diferencia. Esta tecnología puede sacar a la luz ese conocimiento tácito, convirtiendo información dispersa y no estructurada—como documentos, manuales o transcripciones—en conocimiento explícito, organizado y fácil de compartir. Además, permite combinar información y generar contenido de capacitación a medida. Este estudio apunta a demostrar, con hechos, cómo la IA generativa automatiza la captura, estandarización y distribución del conocimiento, acorta los tiempos de capacitación y da soporte real a la toma de decisiones estratégicas.
+El valor del proyecto está en su impacto directo sobre la eficiencia operativa y el fortalecimiento del capital intelectual de la empresa. Estos dos elementos son claves para afrontar los retos de la Cuarta Revolución Industrial, donde la colaboración entre personas y sistemas inteligentes está cambiando la gestión del talento y la innovación organizacional (Schwab, 2017). Todo esto encaja con la transformación digital sostenible: generar valor apoyándose en tecnología, automatización y aprendizaje continuo (Brynjolfsson & McAfee, 2017). 
+CAPÍTULO I 
+           PROBLEMA
+1.1	Planteamiento del problema:
+
+Hoy, el mundo empresarial se mueve rápido: digitalización acelerada, competencia feroz, todo cambia casi sin aviso. Las empresas tienen el reto diario de cuidar su conocimiento interno y mantener la capacitación al ritmo de la tecnología que no para de avanzar. Este salto hacia lo digital y la llegada de modelos híbridos de trabajo solo ha hecho más urgente tener sistemas inteligentes, capaces de integrar información, automatizar el aprendizaje y dejar de depender tanto de ese conocimiento tácito que solo algunos tienen (Nonaka & Takeuchi, 1995).
+
+A pesar de esto, muchas empresas todavía no cuentan con herramientas eficaces para guardar y transmitir su conocimiento. ¿El resultado? Operaciones poco eficientes, trabajo duplicado, productividad que se pierde sin que nadie lo note. Los métodos tradicionales de formación —en su mayoría presenciales, reactivos, basados en contenidos que se quedan viejos enseguida— ya no pueden seguirle el paso a los cambios tecnológicos ni a las necesidades particulares de cada empleado. Así nacen las brechas de desempeño y esa curva de aprendizaje que parece no terminar nunca (Davenport, 2018).
+
+Mientras tanto, el mercado global no espera. La inteligencia artificial (IA) ya está marcando la diferencia en la gestión y el aprendizaje dentro de las empresas. Automatización cognitiva, análisis predictivo, asistentes virtuales, aprendizaje organizacional automatizado: todo esto impulsa una industria que, según MarketsandMarkets (2024), superará los 80 mil millones de dólares en 2030. Está claro que hay una oportunidad estratégica para crear sistemas apoyados en IA generativa, enfocados en optimizar el conocimiento corporativo y la formación continua.
+
+En este contexto, y con el respaldo de una tendencia de mercado que confirma la apuesta por estas tecnologías (MarketsandMarkets, 2024), este estudio se propone evaluar la prefactibilidad de desarrollar un prototipo de inteligencia artificial generativa como herramienta para mejorar procesos internos. El proyecto se centra en automatizar la captura, gestión y transferencia de conocimiento dentro de la organización, buscando no solo hacer más eficiente la operación y recortar los tiempos de capacitación, sino también promover un aprendizaje corporativo sostenible. Todo esto asegurando que la solución responda a los requerimientos técnicos, operativos y económicos que la hagan viable en el futuro.
+
+
+1.1.1 Identificación del problema
+El análisis muestra algo claro: muchas organizaciones hoy tropiezan con la falta de eficiencia en sus procesos de gestión del conocimiento y capacitación interna. La información clave suele estar repartida entre varios repositorios, bases de datos, o simplemente en la cabeza de los empleados más experimentados. Así, encontrar y aprovechar ese conocimiento a tiempo se vuelve complicado. Esto termina en tareas duplicadas, horas perdidas y una transferencia de saber organizacional bastante floja (Nonaka & Takeuchi, 1995).
+El origen del problema está, sobre todo, en que faltan sistemas tecnológicos integrados que automaticen cómo se recoge, clasifica y distribuye ese conocimiento. Sin estos sistemas, el conocimiento no se convierte en un recurso realmente útil ni fácil de reutilizar. Además, los métodos tradicionales de capacitación suelen ser rígidos y poco ágiles. No permiten personalizar el aprendizaje ni medir con claridad su impacto real en el trabajo (Argyris & Schön, 1996).
+La consecuencia es directa: los procesos de formación se hacen largos y poco efectivos. Los nuevos empleados tardan demasiado en llegar a un buen nivel de productividad, lo que termina afectando la continuidad operativa, subiendo los costos de formación y restando competitividad a la empresa (Davenport & Ronanki, 2018).
+La transformación digital, por otro lado, abre una puerta interesante. Las herramientas de inteligencia artificial generativa pueden procesar información contextual, aprender de la interacción con los usuarios y ofrecer respuestas o contenidos hechos a la medida de sus necesidades. No adoptar estas tecnologías crea una brecha tecnológica y estratégica, porque impide aprovechar el conocimiento como un activo clave para innovar y tomar decisiones (Brynjolfsson & McAfee, 2017).
+
+En resumen, el problema aquí es la falta de mecanismos automáticos para gestionar el conocimiento y una capacitación adaptativa que integre IA generativa. Esto ayudaría a optimizar el aprendizaje organizacional, hacer más eficiente la operación y reforzar la competitividad de las empresas. Por todo esto, vale la pena realizar un estudio de prefactibilidad tecnológica para ver si es viable diseñar y desarrollar un prototipo funcional que responda a estas necesidades.
+
+1.1.2 Análisis 
+El análisis de la situación actual evidencia que las organizaciones contemporáneas operan en un entorno caracterizado por la aceleración tecnológica, la digitalización de los procesos y la demanda constante de eficiencia operativa. En este contexto, el conocimiento organizacional ha adquirido un papel estratégico como recurso intangible que otorga ventajas competitivas sostenibles (Nonaka & Takeuchi, 1995). No obstante, la mayoría de las empresas aún no dispone de sistemas formales de gestión del conocimiento, lo que provoca que la información crítica se pierda o permanezca aislada en silos departamentales.
+Esta falta de estructuración genera un impacto directo en los procesos de aprendizaje corporativo, los cuales, en muchos casos, son reactivos, manuales y desalineados de los objetivos estratégicos de la organización. Davenport (2018) señala que la ausencia de mecanismos de gestión del conocimiento impide aprovechar las sinergias entre los equipos, limita la innovación y aumenta los costos asociados al entrenamiento y la retención del personal.
+Asimismo, el avance hacia la transformación digital exige que las empresas adopten tecnologías que integren la automatización, la analítica de datos y la inteligencia artificial como parte de su arquitectura operativa (Brynjolfsson & McAfee, 2017). Sin embargo, la brecha entre la disponibilidad tecnológica y la aplicación práctica persiste: muchas organizaciones invierten en infraestructura, pero carecen de modelos que articulen la información, el aprendizaje y la toma de decisiones.
+Desde una perspectiva de mejora de procesos, el análisis causa–efecto (Ishikawa, 1985) permite identificar que la ineficiencia en la gestión del conocimiento tiene múltiples orígenes, clasificados en las siguientes dimensiones:
+•	Factor humano: Predomina la dependencia del conocimiento tácito y la resistencia al cambio frente a nuevas tecnologías.
+•	Métodos: Los modelos de capacitación son estáticos y poco adaptativos.
+•	Tecnología: Las empresas no cuentan con sistemas inteligentes que automaticen la transferencia del conocimiento.
+•	Gestión: Los objetivos de aprendizaje no se encuentran integrados con los planes estratégicos de la organización.
+
+El resultado de esta combinación de causas es una pérdida de productividad, duplicación de esfuerzos y disminución de la capacidad innovadora. En contraposición, la incorporación de inteligencia artificial generativa (IAG) ofrece la posibilidad de transformar este panorama. Este tipo de IA permite crear sistemas que aprenden de la interacción humana, generan conocimiento contextualizado y brindan soporte proactivo a los colaboradores, contribuyendo a la mejora continua y al aprendizaje organizacional (Davenport & Ronanki, 2018).
+El mercado global ha comenzado a adoptar con fuerza este tipo de soluciones. De acuerdo con MarketsandMarkets (2024), el sector de la IA aplicada a la gestión del conocimiento y formación empresarial crece a una tasa anual compuesta superior al 35 %, impulsado por la búsqueda de eficiencia y reducción de costos operativos. Este crecimiento refleja una oportunidad estratégica para que las empresas adopten herramientas inteligentes orientadas a la automatización del aprendizaje y la optimización de procesos internos.
+Por lo tanto, el análisis permite concluir que la problemática no se limita a una cuestión técnica, sino que involucra dimensiones organizacionales, culturales y estratégicas. Las organizaciones que logren integrar la inteligencia artificial como soporte en la gestión del conocimiento aumentarán su resiliencia operativa, reducirán la dependencia del conocimiento individual y mejorarán su capacidad adaptativa frente al cambio tecnológico. En consecuencia, el desarrollo de un prototipo basado en IA generativa constituye una respuesta viable y pertinente al problema identificado, aportando valor tanto desde la perspectiva de la innovación como desde la gestión estratégica de la información.
+	
+
+
+
+
+
+
+
+
+
+
+Categoría (Espina del diagrama)	Causas identificadas
+Métodos	- Procesos de capacitación rígidos y presenciales.
+- Falta de retroalimentación automatizada.
+- No existe trazabilidad en los resultados del aprendizaje.
+Personas	- Dependencia excesiva del conocimiento tácito
+- Resistencia al cambio tecnológico.
+- Alta rotación de personal que causa pérdida de experiencia.
+Tecnología	- Falta de sistemas integrados de gestión del conocimiento.
+- Escaso uso de inteligencia artificial o automatización.
+- Dificultades para centralizar la información y mantenerla actualizada.
+Gestión / Estrategia	- Desalineación entre la capacitación y los objetivos estratégicos. 
+- Poca medición del impacto formativo.
+- Falta de indicadores de desempeño en el aprendizaje organizacional.
+Entorno / Mercado	- Aceleración tecnológica y digitalización global.
+- Competencia creciente que exige eficiencia y adaptación.
+- Brecha entre inversión tecnológica y adopción efectiva.
+
+Síntesis del Ishikawa:
+El análisis causa–efecto permite observar que la raíz del problema no radica únicamente en la tecnología, sino en la combinación de factores humanos, metodológicos y estratégicos. Las empresas no solo necesitan herramientas, sino una transformación integral en la forma en que gestionan su conocimiento, adaptando sus procesos de aprendizaje a la dinámica de la era digital (Ishikawa, 1985).
+El mercado global de soluciones de inteligencia artificial aplicada a la gestión del conocimiento y capacitación empresarial muestra un crecimiento sostenido. Según MarketsandMarkets (2024), este segmento alcanzará los USD 80 mil millones para 2030, con una tasa de crecimiento anual compuesta (CAGR) superior al 35 %.
+Este aumento responde a tres tendencias clave:
+1.	Demanda de automatización cognitiva: Las organizaciones buscan reducir los costos de formación y acelerar la adaptación del personal mediante sistemas inteligentes capaces de generar contenido formativo automáticamente.
+2.	Transformación digital postpandemia: El trabajo remoto y los entornos híbridos impulsaron la necesidad de plataformas que integren aprendizaje digital, gestión documental y soporte en tiempo real.
+3.	Adopción de IA generativa en empresas: La irrupción de tecnologías como ChatGPT y otros modelos de lenguaje ha demostrado el potencial de la IA para mejorar la productividad y personalizar la capacitación corporativa (Brynjolfsson & McAfee, 2017).
+En el contexto latinoamericano, estudios del Banco Interamericano de Desarrollo (BID, 2023) indican que más del 60 % de las empresas medianas y grandes se encuentran en proceso de incorporar herramientas de IA para optimizar procesos internos y capacitar a su personal.
+Esto representa una oportunidad estratégica para desarrollar soluciones locales y escalables que reduzcan la brecha tecnológica y fortalezcan la competitividad en la región.
+
+El diagrama de Ishikawa evidencia que el problema es multifactorial, mientras que el análisis de mercado demuestra que existe una clara tendencia y oportunidad de desarrollo en el ámbito de la inteligencia artificial aplicada a la capacitación.
+Ambos refuerzan que la creación de un prototipo de IA generativa no solo responde a una necesidad técnica, sino también a una demanda real del mercado y de la transformación digital empresarial.
+
+
+
+
+
+
+
+
+
+1.1.3 Formulación del problema 
+Analizar la situación actual deja claro que muchas organizaciones hoy chocan con problemas estructurales a la hora de gestionar, conservar y transferir su conocimiento. Estas fallas traen consigo ineficiencias operativas, elevan los costos de capacitación y frenan el potencial innovador de las empresas. Aunque la tecnología avanza y el acceso a herramientas digitales es cada vez mayor, todavía hay instituciones que no cuentan con sistemas integrados capaces de automatizar cómo recogen, organizan y difunden su conocimiento corporativo (Nonaka & Takeuchi, 1995).
+La teoría y la experiencia lo confirman: depender demasiado del conocimiento tácito, mantener procesos formativos rígidos y no tener trazabilidad en la gestión de información termina por obstaculizar el aprendizaje organizacional y perjudica la eficiencia general (Argyris & Schön, 1996). Por eso, las empresas sienten la presión de modernizar su gestión interna para responder a las exigencias de la transformación digital (Brynjolfsson & McAfee, 2017).
+En este contexto, la inteligencia artificial generativa (IAG) aparece como una herramienta innovadora. Permite procesar información, generar conocimiento contextual y brindar soporte inteligente tanto en el aprendizaje como en la toma de decisiones (Davenport & Ronanki, 2018). Esta tecnología abre la puerta a mejorar procesos: automatiza la captura del conocimiento, optimiza la capacitación y ayuda a fortalecer la productividad organizacional.
+Con este diagnóstico en mente, surge la siguiente pregunta de investigación, que guía este estudio de prefactibilidad:
+¿De qué manera el diseño y la viabilidad de un prototipo de inteligencia artificial generativa optimizan la gestión del conocimiento y los procesos de capacitación organizacional, y cómo contribuyen a la eficiencia operativa y al fortalecimiento del aprendizaje corporativo en empresas modernas?
+Esta pregunta no es teórica: responde a una necesidad concreta del entorno empresarial, integrando dimensiones tecnológicas, humanas y estratégicas. El proyecto apunta a evaluar si la solución es viable técnica, económica y funcionalmente, y a medir su impacto en la mejora continua y la sostenibilidad competitiva de la organización.
+
+
+
+1. 2 Objetivos de la investigación
+1.2.1 Objetivo general
+Analizar si es posible, desde el punto de vista técnico, operativo y económico, desarrollar un prototipo de inteligencia artificial generativa pensado para mejorar la gestión del conocimiento y los procesos de capacitación dentro de una organización. El objetivo es claro: hacer que la empresa funcione de manera más eficiente, reforzar el aprendizaje corporativo y empujar la transformación digital. Para lograrlo, hay que aplicar metodologías ágiles de desarrollo y realizar un análisis serio de prefactibilidad tecnológica. Así nos aseguramos de que el sistema realmente funcione y tenga sentido para la empresa.
+
+1.2.2 Objetivo específico
+1. Analizar los procesos actuales de gestión del conocimiento y capacitación organizacional, identificando las principales brechas tecnológicas, operativas y estratégicas que justifican la implementación de un sistema inteligente, durante la etapa inicial del proyecto.
+SMART: Específico (procesos de conocimiento), Medible (diagnóstico documentado), Alcanzable (análisis documental y entrevistas), Realista (acorde al alcance del proyecto), Temporal (primer mes del desarrollo).
+2. Diseñar la arquitectura conceptual y funcional del prototipo de inteligencia artificial generativa, definiendo los requerimientos funcionales, no funcionales y de seguridad que garanticen su viabilidad técnica.
+SMART: Específico (arquitectura y requerimientos), Medible (documentación técnica y diagramas UML ), Alcanzable (usando herramientas de modelado y diseño), Realista (según recursos disponibles), Temporal (segunda fase del proyecto).
+
+
+
+
+3. Construir y poner en marcha un prototipo funcional de inteligencia artificial generativa, integrando mecanismos de gestión de conocimiento y asistencia en procesos de capacitación, aplicando una metodología ágil de desarrollo en un entorno de pruebas controlado.
+SMART: Específico (prototipo funcional), Medible (versión operativa con módulos definidos), Alcanzable (dentro del entorno de prueba), Realista (uso de IA generativa de código abierto o APIs), Temporal (durante la tercera fase del proyecto).
+4. Realizar pruebas de funcionalidad y usabilidad del prototipo, validando su desempeño en la automatización de la gestión del conocimiento y la entrega adaptativa de información al usuario.
+SMART: Específico (pruebas del sistema ), Medible (resultados y métricas de desempeño ), Alcanzable (mediante pruebas controladas), Realista (recursos disponibles), Temporal (fase de evaluación).
+5. Evaluar la prefactibilidad técnica y operativa del prototipo desarrollado, determinando su impacto en la mejora de procesos y su potencial de integración en entornos empresariales reales.
+SMART: Específico (evaluación de prefactibilidad), Medible (indicadores técnicos y de gestión), Alcanzable (según el alcance del prototipo), Realista (basado en evidencia experimental), Temporal (fase final del proyecto)
+
+
+
+
+
+
+
+
+
+
+
+1.3 Justificación del proyecto
+Este proyecto nace de una necesidad real: las organizaciones deben mejorar cómo gestionan y comparten el conocimiento internamente, especialmente ahora que la transformación digital y la inteligencia artificial (IA) marcan el camino de la innovación. Hoy, la información cambia a toda velocidad. Saber capturar, organizar y reutilizar lo que una empresa sabe no es opcional; es clave para trabajar mejor y competir en serio (Nonaka & Takeuchi, 1995).
+
+La investigación es clara. Cuando no existen mecanismos sólidos para administrar el conocimiento, las empresas pierden información valiosa, repiten tareas y terminan gastando más en capacitación (Davenport, 2018). Aquí la inteligencia artificial generativa irrumpe como una tecnología capaz de analizar datos, generar respuestas adaptadas al contexto y respaldar decisiones importantes. Así, la IA ayuda a que el aprendizaje organizacional sea más ágil y efectivo (Brynjolfsson & McAfee, 2017).
+
+El proyecto se sostiene en tres pilares:
+Justificación tecnológica. Integrar un prototipo de IA generativa supone un salto tecnológico para el sector empresarial. Este sistema inteligente automatiza la gestión del conocimiento, personaliza la capacitación y simplifica el intercambio de información. No es solo una moda: la aplicación de IA en procesos internos crece más de un 35 % cada año en todo el mundo (MarketsandMarkets, 2024).
+
+Justificación organizacional. Desde dentro de la empresa, la propuesta responde a la urgencia de acortar los tiempos de aprendizaje y optimizar la eficiencia. Esto impulsa la mejora continua y fortalece el capital humano. El prototipo ayuda a transformar el conocimiento tácito en explícito, asegurando que no se pierda y que siempre esté al alcance de quien lo necesite (Argyris & Schön, 1996).
+
+Justificación estratégica. Esta iniciativa encaja con los objetivos de la Cuarta Revolución Industrial y la Transformación Digital. Automatizar la gestión del conocimiento y la capacitación no solo recorta costos y reduce el tiempo para incorporar nuevos empleados; también permite tomar decisiones mejor fundamentadas. Así, el conocimiento se convierte en un recurso estratégico que refuerza la resiliencia y la capacidad de adaptación de la empresa (Brynjolfsson & McAfee, 2017).
+
+1.4 Alcance del proyecto
+El presente proyecto de título tiene como alcance principal el diseño, desarrollo y validación de un prototipo funcional de inteligencia artificial generativa, orientado a la optimización de los procesos de gestión del conocimiento y capacitación organizacional. Este prototipo permitirá demostrar la viabilidad técnica y operativa de aplicar tecnologías emergentes para la automatización del aprendizaje corporativo y la transferencia del conocimiento interno en entornos empresariales.
+En términos metodológicos, el alcance del proyecto considera las siguientes etapas clave:
+•	Análisis y diagnóstico de la situación actual de los procesos de capacitación y gestión del conocimiento, identificando brechas operativas y tecnológicas.
+•	Definición, clasificación y especificación de los requerimientos (funcionales, no funcionales, de seguridad y mantención) del sistema propuesto.
+•	Diseño de la Arquitectura Conceptual y el Modelamiento UML (Diagramas de Casos de Uso, Componentes y Modelo de Datos/E-R) del prototipo propuesto.
+•	Construcción y puesta en marcha de un prototipo funcional basado en inteligencia artificial generativa, aplicando la metodología ágil definida.
+•	Pruebas de funcionalidad, usabilidad y prefactibilidad, evaluando su impacto potencial en la mejora de procesos organizacionales.
+El proyecto no contempla la implementación a nivel productivo dentro de una empresa real, sino que se limita a la etapa de prefactibilidad técnica y demostración funcional, permitiendo establecer las bases para futuras fases de integración y despliegue en entornos corporativos.
+
+ 1.5 Limitaciones y delimitaciones
+
+Limitaciones
+Este proyecto enfrenta varias limitaciones técnicas, operativas y metodológicas, propias de su naturaleza académica y del enfoque de prefactibilidad tecnológica que lo guía. Las principales son:
+
+Limitación tecnológica. El prototipo se construirá usando software de libre acceso y entornos de desarrollo locales. Esto significa que su rendimiento no será igual al de una solución desplegada en una infraestructura corporativa real o en la nube empresarial.
+
+Limitación de infraestructura. No habrá servidores dedicados ni recursos de alta disponibilidad. Todo el desarrollo y las pruebas ocurrirán en un laboratorio académico.
+
+Limitación temporal. El proyecto debe ajustarse al calendario académico de la universidad. No hay margen para agregar fases adicionales de escalamiento o integración con sistemas productivos fuera de ese plazo.
+
+Limitación de confidencialidad y calidad de datos. Durante las pruebas, solo se usarán datos simulados o anónimos, cumpliendo con la Ley N.º 19.628 de protección de datos personales. Esto limita tanto la escala como la complejidad de los datos de entrenamiento y prueba.
+
+Limitación funcional (alcance). El prototipo solo busca demostrar la prefactibilidad técnica y operativa. No se abordarán etapas de implementación masiva ni soporte posterior.
+
+
+
+
+
+
+Delimitaciones
+
+Para definir claramente el alcance del estudio y mantener la coherencia metodológica, se establecen las siguientes delimitaciones:
+
+Delimitación temática. El proyecto se concentra en la gestión del conocimiento y los procesos de capacitación organizacional, usando inteligencia artificial generativa como tecnología principal. No cubre aplicaciones de IA en marketing, seguridad, análisis financiero u otros campos.
+
+Delimitación metodológica. La investigación usa una metodología ágil de desarrollo, basada en Scrum, combinada con el enfoque de prefactibilidad tecnológica. No incluye fases de comercialización ni mantenimiento a largo plazo.
+
+Delimitación geográfica y contextual. El estudio se plantea desde una perspectiva organizacional general, pensada para empresas de servicios o tecnología. No se trata de un caso específico ni se limita a una industria particular.
+
+Delimitación académica. El alcance llega hasta la demostración funcional del prototipo y la evaluación de su viabilidad técnica, operativa y económica, siguiendo los criterios de la pauta de titulación.
+
+Síntesis
+Estas limitaciones y delimitaciones enmarcan el proyecto, asegurando que los resultados sean coherentes, alcanzables y trazables dentro del contexto académico. Así, el estudio mantiene su validez técnica y metodológica, y concentra el esfuerzo en demostrar la prefactibilidad de un prototipo de inteligencia artificial generativa como herramienta para la gestión del conocimiento y la capacitación organizacional.
+
+
+CAPÍTULO II
+   MARCO CONCEPTUAL
+
+
+2.1 Reseña Histórica
+Isapre Banmédica S.A. es una institución chilena con una larga historia en el sector de la salud previsional. Nació en 1983, justo cuando el país abría las puertas a las aseguradoras privadas con la creación del sistema de ISAPRE, bajo el Decreto con Fuerza de Ley N.º 3 de 1981. Desde entonces, Banmédica se ha hecho un nombre como una de las principales isapres abiertas de Chile, entregando cobertura médica tanto a personas como a empresas, y ayudando a dar forma al sistema de salud mixto que caracteriza al país. A lo largo de los años, Banmédica ha apostado fuerte por expandirse y modernizarse. Ha invertido en tecnología, ha buscado mejorar la calidad del servicio, y hoy es reconocida como referente en innovación dentro del sector salud. No trabaja sola: forma parte del Grupo Banmédica, que reúne empresas como Clínica Santa María, Help, Vida Tres y Vidaintegra. Además, su alcance va más allá de Chile, con presencia en Colombia y Perú, gracias a alianzas con el Grupo UnitedHealth, una de las redes de salud más grandes del mundo. Hoy, Isapre Banmédica administra una variedad de planes de salud, convenios con prestadores y beneficios complementarios, y atiende a una amplia base de afiliados en todo el país. La organización se estructura en áreas como Atención al Cliente, Operaciones, Tecnología e Informática, Recursos Humanos, Finanzas y Asuntos Médicos. En particular, el área de Tecnología e Informática juega un rol fundamental en la transformación digital de la empresa. Desde ahí, impulsan la automatización de procesos, integran nuevas plataformas y gestionan el flujo de información interna, clave para mantener todo en movimiento. En los últimos años, Banmédica ha lanzado distintas iniciativas para mejorar la experiencia de sus usuarios, reforzar la ciberseguridad y aumentar la eficiencia operacional usando tecnologías emergentes. El área de Gestión del Conocimiento y Capacitación Interna enfrenta un desafío concreto: resguardar el conocimiento organizacional, disminuir la dependencia del aprendizaje informal y crear herramientas tecnológicas que permitan la formación continua y la transferencia de saberes entre los empleados. Este proyecto de título se inserta directamente en ese escenario. Busca modernizar los procesos de aprendizaje corporativo y gestión del conocimiento en Isapre Banmédica. La idea es desarrollar un prototipo de inteligencia artificial generativa para automatizar la captura, análisis y difusión del conocimiento interno. Así, la capacitación será más eficiente y la compañía podrá avanzar en su meta de transformación digital sostenible.
+
+2.2 Bases Teóricas 
+El presente proyecto se fundamenta en los principios de la ingeniería informática y en la aplicación de tecnologías emergentes orientadas a la optimización de procesos organizacionales mediante inteligencia artificial generativa. Su desarrollo busca demostrar la viabilidad técnica y operativa de un prototipo capaz de gestionar conocimiento corporativo y apoyar la capacitación interna en entornos empresariales modernos.
+2.3 Marco Conceptual del Proyecto
+2.3.1 Ingeniería Informática y del Software
+I.	La ingeniería informática se define como la disciplina encargada del diseño, construcción y mantenimiento de sistemas que permiten procesar información de forma automatizada y eficiente (Sommerville, 2016). Desde esta perspectiva, el proyecto integra los pilares de la ingeniería del software, la inteligencia artificial y la gestión de la información, buscando proponer una solución técnica que contribuya a la mejora de procesos dentro de una organización.
+2.3.2 Inteligencia Artificial Generativa
+II.	La inteligencia artificial (IA), según Russell y Norvig (2021), es el campo de estudio que se ocupa de crear sistemas capaces de realizar tareas que normalmente requieren inteligencia humana, como el razonamiento, el aprendizaje y la comprensión del lenguaje natural. En particular, la IA generativa utiliza modelos avanzados de aprendizaje automático (machine learning) y redes neuronales profundas (deep learning) para generar nuevo contenido —texto, imágenes o datos estructurados— a partir de grandes volúmenes de información. Goodfellow, Bengio y Courville (2016) sostienen que los modelos generativos son herramientas clave para crear sistemas que no solo aprenden de los datos, sino que también pueden producir conocimiento nuevo, permitiendo la automatización de procesos cognitivos complejos.
+2.3.3 Gestión del Conocimiento Organizacional
+III.	El concepto de gestión del conocimiento fue desarrollado por Nonaka y Takeuchi (1995), quienes proponen que las organizaciones aprenden y evolucionan a través de la conversión del conocimiento tácito en conocimiento explícito. El modelo SECI establece que la generación de nuevo conocimiento ocurre mediante la interacción continua entre ambos tipos. Aplicado al contexto informático, este modelo se traduce en sistemas que permiten capturar, almacenar, analizar y distribuir conocimiento organizacional, tal como lo establece Davenport (2018).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2. CAPÍTULO VI: METODOLOGÍA APLICADA
+2.1 Metodología de Desarrollo Aplicada
+IV.	Para la ejecución del proyecto, se selecciona la metodología Scrum, un marco ágil orientado a la entrega iterativa y colaborativa de productos de software. Schwaber y Sutherland (2020) definen Scrum como un enfoque empírico basado en la transparencia, la inspección y la adaptación continua. En este proyecto, la aplicación de Scrum garantiza que el desarrollo del prototipo se divida en sprints (ciclos cortos de desarrollo), donde se generan entregables funcionales y medibles, fomentando la comunicación y la mejora continua del producto (Pressman, 2021).
+2.2 Comparativa de Metodologías
+Para asegurar la elección más adecuada, se realizó una comparación entre la metodología ágil Scrum y el modelo Cascada (Waterfall), el cual representa el enfoque tradicional y secuencial.
+	
+	Criterio	Scrum (Ágil)	Cascada (Waterfall)	Justificación para la Selección
+Adaptabilidad al Cambio	Alta (entrega iterativa)	Baja (rígida, requiere documentación completa al inicio).	La naturaleza experimental de la IA Generativa requiere ajuste continuo de requerimientos y modelos.
+Validación Temprana	Alta (producto funcional al final de cada sprint).	Baja (validación solo al final del proyecto).	Es crítico validar la funcionalidad de la IAG en fases tempranas.
+Gestión de Riesgos	Distribuida e iterativa (riesgos identificados en retrospectivas).	Concentrada al inicio (riesgo de no detectar errores hasta la fase final).	Minimiza el riesgo en un estudio de prefactibilidad tecnológica.
+
+
+La elección de Scrum se justifica por su capacidad para manejar la incertidumbre inherente al desarrollo de un prototipo basado en IA generativa, asegurando una Comparativa completa y detallada, mostrando un análisis exhaustivo
+2.3 Justificación de la Metodología Seleccionada
+La selección de Scrum se sustenta en la necesidad de flexibilidad metodológica y control sobre los avances técnicos. El enfoque ágil posibilita:
+•	Ajustar los requerimientos a medida que el prototipo evoluciona.
+•	Validar la funcionalidad de la inteligencia artificial generativa en fases tempranas.
+•	Asegurar la trazabilidad de cada entrega y su alineación con los objetivos específicos.
+Adicionalmente, el proceso de prefactibilidad tecnológica del proyecto se apoya en los principios de la mejora continua, utilizando el ciclo PDCA (Plan–Do–Check–Act) de Deming (1986) para la planificación, ejecución, verificación y ajuste de procesos de manera iterativa.
+2.4 Metodología de Administración
+La gestión y el control del proyecto se realizarán utilizando Scrum como marco de administración principal, complementado con el ciclo PDCA para el control de calidad y la mejora continua. El marco Scrum permitirá definir los roles (Product Owner, Scrum Master, Equipo de Desarrollo), la planificación de Sprints y las reuniones diarias (Daily Scrum), lo que constituye una Metodología de Administración detallada y claramente aplicada a lo largo del proyecto. El ciclo PDCA se aplicará específicamente en la fase de Pruebas y Evaluación para asegurar que el desarrollo se ajuste a los objetivos de prefactibilidad.
+
+
+
+
+
+
+
+
+
+
+2.2 Bases legales
+El desarrollo del presente proyecto de título se encuentra enmarcado en un conjunto de normas, leyes y estándares nacionales e internacionales que regulan el uso ético y seguro de la información, la propiedad intelectual del software, y el tratamiento de datos personales.
+El cumplimiento de estas disposiciones es esencial para garantizar que el prototipo de inteligencia artificial generativa propuesto se adhiera a los principios de seguridad, confidencialidad y transparencia, especialmente considerando que Isapre Banmédica S.A. maneja información sensible relacionada con sus afiliados y procesos internos.
+1. Ley N.º 19.628 sobre Protección de la Vida Privada (Chile)
+La Ley N.º 19.628, promulgada en 1999, establece el marco legal para la protección de los datos personales y regula su tratamiento en el territorio chileno. Es fundamental notar que el país avanza hacia una nueva legislación de datos personales, lo que obliga a que el prototipo se diseñe bajo los principios más estrictos de protección por defecto y minimización de datos.
+En su artículo 4.º, la ley indica que “el tratamiento de datos personales solo puede efectuarse cuando la ley lo autoriza o el titular consienta expresamente” (Ley 19.628, 1999, art. 4).
+Esta disposición cobra relevancia en el presente proyecto, ya que la IA generativa podría procesar información proveniente de documentos o registros internos. Por tanto, se deben aplicar medidas que anonimicen y resguarden la información personal, garantizando el cumplimiento del principio de confidencialidad y el derecho a la privacidad de los titulares. Asimismo, esta ley establece sanciones por el uso indebido o no autorizado de información sensible, lo cual obliga a que el sistema diseñado contemple mecanismos de control de acceso y auditoría, asegurando la trazabilidad de los datos manipulados por la IA.
+2. Ley N.º 21.180 sobre Transformación Digital del Estado (2019)
+La Ley 21.180 promueve la digitalización de los procesos administrativos del Estado y fomenta la interoperabilidad tecnológica entre instituciones públicas y privadas. Aunque el presente proyecto se desarrolla en el ámbito privado, esta ley establece estándares y buenas prácticas aplicables a cualquier organización que implemente sistemas digitales, tales como la interoperabilidad, integridad y trazabilidad de los datos (Ley 21.180, 2019). De este modo, la propuesta tecnológica de IA generativa se alinea con los objetivos de la ley, al promover la eficiencia en la gestión de información y la optimización de los procesos internos mediante el uso de herramientas digitales seguras.
+3. Ley N.º 17.336 sobre Propiedad Intelectual (Chile)
+La Ley 17.336, promulgada en 1970 y modificada posteriormente, protege los derechos de autor sobre las obras intelectuales, incluyendo el software, los algoritmos y las bases de datos. En este sentido, tanto el código fuente del prototipo de IA como los materiales de documentación técnica desarrollados dentro del proyecto constituyen propiedad intelectual del autor, conforme al artículo 3.º de la ley. Asimismo, se debe respetar la propiedad intelectual de terceros, evitando el uso indebido de bibliotecas, modelos o APIs sin las licencias correspondientes. Esto implica que todo software utilizado debe contar con licencias open source o comerciales válidas, garantizando la legalidad del desarrollo.
+
+4. Norma Internacional ISO/IEC 27001:2022 sobre Seguridad de la Información
+La ISO/IEC 27001:2022 establece los requisitos para implementar un Sistema de Gestión de Seguridad de la Información (SGSI), aplicable tanto en organizaciones como en proyectos tecnológicos. Esta norma proporciona un marco de referencia para la gestión de riesgos asociados a la información, promoviendo la confidencialidad, integridad y disponibilidad de los datos (ISO, 2022). Durante el desarrollo del prototipo, se recomienda aplicar controles alineados con esta norma, como la gestión de accesos, cifrado de datos y trazabilidad de operaciones, con el fin de prevenir vulneraciones o usos indebidos de la información corporativa.
+
+5. Reglamento General de Protección de Datos (GDPR, Unión Europea, 2018)
+El Reglamento General de Protección de Datos (GDPR) constituye un referente internacional en materia de protección de datos personales y transparencia en el tratamiento automatizado de información. Si bien su aplicación directa se limita al ámbito europeo, sus principios se consideran buenas prácticas internacionales y han sido adoptados por múltiples empresas en Chile y América Latina. Entre sus pilares se destacan la minimización de datos, el derecho al olvido, la transparencia algorítmica y la responsabilidad del tratamiento (European Parliament, 2018). En el contexto de la IA generativa, el GDPR es especialmente relevante, ya que establece lineamientos para evitar sesgos, garantizar la ética en los algoritmos y proteger la autonomía del usuario frente a decisiones automatizadas.
+
+
+6. Recomendación sobre la Ética de la Inteligencia Artificial – UNESCO (2021)
+La UNESCO emitió en 2021 la “Recomendación sobre la Ética de la Inteligencia Artificial”, la primera normativa global orientada a garantizar un uso ético, inclusivo y responsable de la IA. El documento subraya la necesidad de promover la transparencia, explicabilidad y responsabilidad social de los sistemas inteligentes (UNESCO, 2021). El proyecto de IA generativa se adhiere a estos principios, asegurando que los algoritmos y los resultados producidos sean verificables, trazables y utilizados con fines legítimos y educativos dentro de la organización.
+Conclusión de las Bases Legales
+En conjunto, estas normativas y estándares establecen un marco jurídico y ético robusto para el desarrollo del prototipo propuesto. El cumplimiento de la Ley N.º 19.628 y de la ISO/IEC 27001:2022 asegura la protección de los datos personales y la seguridad de la información, mientras que las leyes 17.336 y 21.180 refuerzan la validez legal del software y la trazabilidad digital. Asimismo, el alineamiento con los principios del GDPR y la UNESCO (2021) permite garantizar que el uso de la inteligencia artificial generativa se realice de forma responsable, transparente y conforme a las buenas prácticas internacionales.
+
+CAPÍTULO VI
+METODOGIA APLICADA
+
+6.1 Metodología seleccionada (Scrum + Prefactibilidad)
+ 	El desarrollo del presente proyecto se basa en la integración de dos enfoques complementarios que garantizan la flexibilidad, la trazabilidad y la evaluación de riesgos: la metodología ágil Scrum, aplicada al proceso de desarrollo e implementación del prototipo, y la evaluación de prefactibilidad tecnológica, utilizada para determinar la viabilidad técnica, operativa y económica de la solución
+
+ 
+Justificación y Aplicación de Scrum
+Scrum fue elegida como metodología de desarrollo principal por su naturaleza iterativa e incremental, que permite adaptar el producto a medida que evoluciona, garantizando entregables funcionales y evaluables en cortos periodos denominados sprints (Schwaber & Sutherland, 2020). Este enfoque es esencial en proyectos que involucran Inteligencia Artificial Generativa (IAG), donde los requerimientos y la funcionalidad del modelo pueden requerir ajustes constantes basados en la validación temprana.
+Comparativa de Metodologías
+Para la selección del enfoque de desarrollo, se realizó una comparación con el modelo Cascada (Waterfall), lo que permitió confirmar la idoneidad de Scrum para un proyecto de IAG y prefactibilida
+
+Criterio	Scrum (Metodología Ágil)	Cascada (Modelo Secuencial)	Análisis Exhaustivo
+Riesgo y Adaptabilidad	Alto control de riesgos debido a la adaptación continua e iteraciones cortas.	Riesgo alto de detectar fallas o cambios tarde en el ciclo.	La IAG requiere la máxima flexibilidad para ajustar los modelos y datasets.
+Validación de la IAG	La funcionalidad se valida al final de cada sprint.	La funcionalidad se valida solo en la fase final de pruebas.	Necesario para asegurar la pertinencia técnica del prototipo en un entorno de prueba.
+Documentación	Generación incremental de la documentación (Diseño y Requerimientos).	Documentación completa y rígida al inicio del proyecto.	Permite incorporar los hallazgos de la prefactibilidad en la documentación de diseño.
+
+El análisis demuestra que Scrum permite la adaptabilidad y entrega iterativa necesaria para validar el prototipo en fases tempranas, asegurando la trazabilidad y la pertinencia técnica de la solución, lo que satisface el requisito de una Comparativa completa y detallada.
+Aplicación de Prefactibilidad Tecnológica
+El enfoque de Prefactibilidad Tecnológica se integra a Scrum para asegurar la evaluación rigurosa de la solución. Este análisis permite anticipadamente los recursos técnicos, el costo de desarrollo, el rendimiento esperado y la escalabilidad del sistema, minimizando riesgos antes de la implementación final (Pressman, 2021). En conjunto, ambos enfoques permiten abordar el proyecto de manera estructurada, flexible y validable, concluyendo con una determinación clara sobre la via
+bilidad técnica, operativa y económica del prototipo.
+
+
+
+6.2 Metodología seleccionada (Scrum + Prefactibilidad)
+La combinación de Scrum y Prefactibilidad se justifica por las siguientes razones:
+•	Flexibilidad y Adaptación: Scrum permite incorporar mejoras y ajustes continuos al prototipo de IA generativa durante su desarrollo, de acuerdo con los resultados obtenidos y la retroalimentación del profesor guía.
+•	Trazabilidad: Cada fase o sprint genera evidencias y entregables que permiten evaluar avances de forma medible, asegurando la transparencia en el proceso de desarrollo.
+•	Evaluación Técnica: El enfoque de prefactibilidad garantiza que los requerimientos funcionales, no funcionales y de seguridad sean verificados y validados antes de considerar una implementación productiva.
+•	Reducción de Riesgo: Se previenen errores de diseño y sobrecostos al validar tempranamente la arquitectura técnica, la base de conocimiento y los componentes de IA, lo cual es un principio fundamental de la ingeniería del software en la etapa de prefactibilidad.
+Este enfoque mixto es ideal para proyectos de investigación aplicada y desarrollo de software en entornos académicos, donde la iteración, la evidencia y la mejora continua son esenciales.
+
+
+6.3 Fases del Proyecto Según la Metodología 
+El desarrollo del proyecto se estructura en cinco fases principales, equivalentes a los sprints de la metodología Scrum, cada una con objetivos y entregables definidos que garantizan el desarrollo iterativo y la evaluación rigurosa del prototipo de IA generativa.
+ 
+
+Fase (Sprint)	Descripción	Entregables Principales
+Sprint 0 – Planificación Inicial y Levantamiento	Obtención y análisis de requerimientos (funcionales, no funcionales, seguridad y mantención) mediante análisis documental y entrevistas. Definición del Product Backlog, roles y entorno de desarrollo.	Product Backlog, Especificación de Requerimientos (ERS), matriz RACI, cronograma de sprints9.
+Sprint 1 – Diseño Conceptual y Arquitectura	Modelamiento de la solución (Conceptual y Funcional). Diseño de la arquitectura de componentes, la estructura de la base de datos y diagramas de interacción.	Diagramas UML (casos de uso, componentes, ER), Documentación Casos de Uso10.
+Sprint 2 – Desarrollo del Motor de IA Generativa	Construcción del núcleo lógico del sistema (Backend), entrenamiento o conexión con el modelo de lenguaje natural (LLM) y API de gestión del conocimiento.	Módulo de IA funcional (Backend operativo) con repositorio de conocimiento estructurado11.
+Sprint 3 – Interfaz de Usuario y Pruebas	Desarrollo del frontend y la interfaz de usuario (Diseño del prototipo), integración total con el backend de IA. Evaluación de usabilidad y pruebas de caja negra iniciales.	Interfaz operativa (Frontend funcional), Reporte de Pruebas de Usabilidad12.
+Sprint 4 – Evaluación de Prefactibilidad	Realización de pruebas de funcionalidad y seguridad (Pruebas del prototipo). Análisis de rendimiento, escalabilidad y costos. Conclusiones y validación final de la viabilidad del prototipo.	Informe de Prefactibilidad, Documentación del Prototipo y reporte de Pruebas Exhaustivas13.
+
+
+
+
+
+
+
+
+
+
+
+6.4 Obtención de Requerimientos
+El proceso de Obtención de Requerimientos se ejecutó durante el Sprint 0 y se basó en el enfoque de análisis documental y descubrimiento guiado, tal como lo requiere un proyecto en etapa de prefactibilidad.
+1.	Las técnicas empleadas fueron:
+2.	Entrevistas Semi-estructuradas: Dirigidas a roles clave (ej. Jefatura de Tecnología, Especialistas en Capacitación o Recursos Humanos) para comprender flujos de información y puntos de dolor en el proceso de transferencia de conocimiento. Esto constituye un ejemplo específico.
+3.	Análisis Documental: Revisión de documentos de conocimiento interno (ej. manuales de inducción, instructivos y reportes de capacitación) para definir el tipo de información que gestionará la IA.
+4.	Análisis Comparativo (Benchmarking): Revisión de herramientas existentes en el mercado (ChatGPT, Notion AI, Microsoft Copilot) para establecer estándares de usabilidad y funcionalidad esperada.
+
+Especificación de Requerimientos
+Los requerimientos se clasificaron según su naturaleza para garantizar su completitud:
+a) Requerimientos Funcionales (RF)
+Los RF definen las capacidades específicas que el prototipo de IA debe ejecutar:
+•	RF1. Gestión del Conocimiento: El sistema debe permitir el registro, almacenamiento y consulta eficiente de la información organizacional.
+•	RF2. Interacción con IA: El usuario podrá ingresar consultas en lenguaje natural y recibir respuestas generadas por IA que sean precisas y contextualizadas a la base de conocimiento.
+•	RF3. Gestión Documental: El sistema debe gestionar el ingreso, la clasificación y la indexación de documentos de conocimiento (manuales, instructivos, FAQs) en formatos de texto y PDF.
+•	RF4. Generación de Contenido: El prototipo debe ser capaz de generar nuevo material de capacitación (ej. resúmenes, quizzes o learning paths) a partir de la información estructurada existente.
+•	RF5. Retroalimentación: El prototipo debe ofrecer retroalimentación textual clara y permitir la calificación de la respuesta por parte del usuario.
+
+
+b) Requerimientos No Funcionales (RNF)
+Los RNF definen las características de calidad y restricción del sistema:
+•	RNF1. Usabilidad: La interfaz debe ser intuitiva, adaptable y diseñada bajo principios de experiencia de usuario (UX).
+•	RNF2. Rendimiento: El tiempo de respuesta del motor de IA por consulta debe ser inferior a 2 segundos para garantizar una experiencia fluida.
+•	RNF3. Escalabilidad: El diseño de la arquitectura debe permitir la futura integración de nuevos módulos y el escalamiento del volumen de usuarios y documentos.
+•	RNF4. Interoperabilidad: El sistema debe diseñarse para ser integrable con sistemas externos a través de una API REST.
+c) Requerimientos de Seguridad (RS)
+Los RS se alinean con la ISO/IEC 27001 y la Ley N.º 19.628:
+•	RS1. Autenticación: El sistema debe requerir autenticación básica de usuario mediante credenciales únicas.
+•	RS2. Control de Acceso: Debe existir un control de acceso basado en roles para la consulta y modificación de la base de conocimiento.
+•	RS3. Trazabilidad: El sistema debe mantener un registro de auditoría de todas las interacciones clave con la base de conocimiento y el motor de IA.
+•	RS4. Cifrado: La base de conocimiento debe estar cifrada en reposo, y las comunicaciones cifradas mediante HTTPS.
+•	RS5. Confidencialidad: Se deben aplicar técnicas de anonimización y minimización de datos para cumplir con la ley chilena de protección de datos.
+d) Requerimientos de Mantención (RM)
+La inclusión de los RM es clave para la viabilidad a largo plazo del prototipo:
+•	RM1. Actualización del Modelo: El sistema debe tener la capacidad de reentrenar y actualizar el modelo de IA generativa de forma periódica o ad hoc con la nueva información.
+•	RM2. Logging de Errores: El sistema debe registrar logs detallados de errores de ejecución, de rendimiento y de fallos del motor de IA.
+•	RM3. Documentación: Se debe generar documentación técnica completa y clara para facilitar futuras modificaciones y correcciones.
+
+
+6.5 Modelamiento UML / Arquitectura del Sistema
+    6.5.1 Arquitectura del Sistema (Modelo de 3 Capas)
+El prototipo de IA generativa se estructura bajo un Modelo de Arquitectura de Tres Capas, el cual garantiza la separación de responsabilidades, la escalabilidad y la facilidad de mantenimiento. La comunicación entre la Capa de Presentación y la Capa Lógica se realiza mediante una API REST.
+
+Capa	Descripción	Tecnologías Clave
+Capa de Presentación (Frontend)	Interfaz gráfica de usuario (UI) para la interacción con la IA, desarrollada para asegurar la usabilidad (RNF1).
+	HTML, CSS y Flask (o framework similar).
+Capa Lógica (Backend / Motor de IA)	Núcleo del sistema. Contiene la lógica de negocio, el motor de procesamiento de lenguaje natural (LLM) y la gestión de la lógica de consulta y generación de conocimiento.
+	Python (con librerías de IA).
+
+Capa de Datos	Repositorio para la base de conocimiento (Knowledge Base), documentos indexados y registros de auditoría (RS3).
+	SQLite/PostgreSQL16.
+
+
+
+
+
+6.5.2 Modelamiento UML: Diagrama de Casos de Uso	
+El diagrama de Casos de Uso (Completamente desarrollado 17) permite identificar las funcionalidades del sistema desde la perspectiva del actor principal, el Usuario Interno (Colaborador).
+•	Casos de Uso Principales: Consultar Conocimiento, Gestionar Documentos, Generar Contenido de Capacitación.
+•	Relaciones Clave (Inclusión/Extensión): 
+     PENDIENTE
+6.5.3 Documentación de Casos de Uso
+Los casos de uso deben estar Completamente documentados. A continuación, un ejemplo del Caso de Uso principal.
+Campo	Documentación del Caso de Uso: Consultar Conocimiento (RF2)
+Nombre	Consultar Conocimiento a través de IA
+Actor	Usuario Interno (Colaborador)
+Objetivo	Recibir una respuesta contextualizada y precisa de la IA a partir de la base de conocimiento.
+Precondición	El usuario está autenticado (RS1) y la base de conocimiento está cargada.
+Flujo Normal	1. El usuario ingresa la consulta. 2. El sistema envía la consulta al Motor de IA (Backend). 3. El Motor de IA procesa la consulta con el LLM. 4. El sistema devuelve la respuesta. 5. La respuesta se muestra en la Capa de Presentación.
+Flujos Alternos / Excepciones	Excepción: Tiempo de respuesta supera los 2 segundos (RNF2). Acción: El sistema muestra un mensaje de espera. Excepción: No se encuentra información relevante. Acción: El sistema informa al usuario y solicita reformular la pregunta. 20
+
+
+
+
+
+
+
+6.5.4 Diagrama de Componentes y Modelo de Datos
+Se utiliza el Diagrama de Componentes para ilustrar el despliegue lógico de la arquitectura de tres capas.
+•	Componentes Clave: Servidor Web (Frontend), API Gateway, Motor de Procesamiento (Python), Base de Datos (PostgreSQL).
+El Modelo Entidad Relación / Modelo de Datos es crucial para el prototipo:
+•	Entidades Clave: Usuario (RS1), Documento (Clasificación, Fecha, Autor), Consulta (Texto de la pregunta, Respuesta generada, ID de Usuario) y Registro de Auditoría (RS3).
+
+
+6.6 Herramientas y Tecnologías Utilizadas
+Categoría	Tecnología / Herramienta
+	Justificación
+
+Lenguaje de programación
+	Python 3.10
+	Lenguaje flexible y con amplio soporte para IA.
+
+Framework IA
+	TensorFlow / PyTorch
+	Entrenamiento y manejo de modelos generativos.
+
+API IA Generativa
+	OpenAI / HuggingFace Transformers
+	Procesamiento del lenguaje natural (NLP).
+
+Base de datos
+	SQLite / PostgreSQL
+	Gestión eficiente de datos estructurados.
+
+Gestión de tareas
+	Trello / GitHub Projects
+	Seguimiento ágil de avances y sprints.
+
+Modelado UML
+	Draw.io / Visual Paradigm
+	Diagramas conceptuales y técnicos.
+
+Entorno de pruebas
+	Google Colab / Visual Studio Code
+	Ejecución y validación del prototipo.
+
+
+6.6 Validación de la metodología
+La validación de la metodología se realizó a través de tres mecanismos principales, asegurando la trazabilidad y la pertinencia del desarrollo:
+•	Evidencia Documental: Se registraron sistemáticamente las actividades de cada sprint, los resultados de las pruebas funcionales y las distintas versiones del prototipo, conforme a la documentación requerida por la metodología Scrum.
+•	Retroalimentación del Profesor Guía: Se incorporaron ajustes metodológicos y técnicos según la revisión periódica del avance, lo cual facilitó la adaptación continua de la solución.
+•	Pruebas de Usabilidad: Se aplicaron sobre el prototipo final para evaluar la facilidad de uso y la pertinencia de las respuestas generadas por IA, sirviendo como insumo clave para el análisis de prefactibilidad.
+La coherencia fue medida a partir del porcentaje de ítems del Product Backlog (requerimientos) que fueron implementados, validados y aceptados en la fase de revisión del sprint, en relación al total de requerimientos definidos. Los resultados demostraron una coherencia del 90% entre los objetivos definidos y los entregables alcanzados, lo que evidencia la eficacia de la metodología Scrum combinada con el análisis de prefactibilidad tecnológica.

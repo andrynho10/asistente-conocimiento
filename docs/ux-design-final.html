@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente-Conocimiento - Diseño Final Híbrido Adaptativo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            padding: 2rem;
+        }
+
+        .header {
+            max-width: 1400px;
+            margin: 0 auto 2rem;
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .header h1 {
+            font-size: 1.875rem;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+        }
+
+        .header p {
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        .controls {
+            max-width: 1400px;
+            margin: 0 auto 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .view-btn {
+            padding: 0.75rem 1.5rem;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .view-btn:hover {
+            border-color: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .view-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .mockup-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .view {
+            display: none;
+            background: white;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        }
+
+        .view.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .view-header {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            color: white;
+            padding: 2rem;
+        }
+
+        .view-header h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .view-header .description {
+            opacity: 0.9;
+            font-size: 0.9375rem;
+        }
+
+        .specs {
+            background: #f8fafc;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .spec-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .spec-icon {
+            width: 36px;
+            height: 36px;
+            background: white;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+            flex-shrink: 0;
+        }
+
+        .spec-content {
+            flex: 1;
+        }
+
+        .spec-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .spec-value {
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .mockup {
+            padding: 2rem;
+        }
+
+        /* Usuario Desktop - Split View */
+        .split-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 1.5rem;
+            height: 700px;
+        }
+
+        .top-bar {
+            grid-column: 1 / -1;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .logo {
+            font-weight: 600;
+            font-size: 1.125rem;
+            color: #2563eb;
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: #f8fafc;
+            border-color: #2563eb;
+        }
+
+        .chat-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .chat-header h3 {
+            font-size: 1.125rem;
+            color: #1e293b;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .message {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .avatar.ai {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+        }
+
+        .avatar.user {
+            background: #e2e8f0;
+            color: #64748b;
+        }
+
+        .bubble {
+            padding: 1rem 1.25rem;
+            border-radius: 1rem;
+            max-width: 85%;
+            line-height: 1.6;
+        }
+
+        .bubble.ai {
+            background: white;
+            border: 1px solid #e2e8f0;
+        }
+
+        .bubble.user {
+            background: #2563eb;
+            color: white;
+        }
+
+        .bubble p {
+            margin-bottom: 0.75rem;
+        }
+
+        .bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .bubble ol {
+            margin: 0.75rem 0 0.75rem 1.5rem;
+        }
+
+        .bubble li {
+            margin-bottom: 0.5rem;
+        }
+
+        .source-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .source-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.8125rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .source-chip:hover {
+            background: #bfdbfe;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .quick-action-btn {
+            padding: 0.5rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            font-size: 0.8125rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action-btn:hover {
+            background: white;
+            border-color: #2563eb;
+            color: #2563eb;
+        }
+
+        .input-area {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 0.875rem 1.125rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            font-size: 0.9375rem;
+            font-family: inherit;
+            resize: none;
+            max-height: 120px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .send-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.875rem 1.5rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover {
+            background: #1e40af;
+        }
+
+        .sources-panel {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .sources-panel h3 {
+            font-size: 1rem;
+            margin-bottom: 1.25rem;
+            color: #1e293b;
+        }
+
+        .doc-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .doc-card:hover {
+            border-color: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.1);
+        }
+
+        .doc-card.active {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .doc-title {
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+            font-size: 0.9375rem;
+        }
+
+        .doc-meta {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+        }
+
+        .doc-excerpt {
+            background: #fffbeb;
+            border-left: 3px solid #f59e0b;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.8125rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+
+        /* Usuario Mobile */
+        .mobile-frame {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 2rem;
+            overflow: hidden;
+            height: 800px;
+            position: relative;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+
+        .mobile-top-bar {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white;
+            padding: 1.25rem 1rem;
+            text-align: center;
+        }
+
+        .mobile-top-bar h3 {
+            font-size: 1.125rem;
+        }
+
+        .mobile-messages {
+            height: calc(100% - 180px);
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .mobile-bubble {
+            padding: 0.875rem 1rem;
+            border-radius: 1.125rem;
+            max-width: 85%;
+            line-height: 1.6;
+            font-size: 0.9375rem;
+        }
+
+        .mobile-bubble.ai {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            align-self: flex-start;
+        }
+
+        .mobile-bubble.user {
+            background: #2563eb;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .mobile-source-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 0.25rem 0.625rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .mobile-input {
+            position: absolute;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            padding: 0.75rem 1rem;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .mobile-input input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.5rem;
+            font-size: 0.9375rem;
+        }
+
+        .mobile-fab {
+            width: 48px;
+            height: 48px;
+            background: #2563eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            padding: 0.5rem 0;
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: #2563eb;
+        }
+
+        .nav-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-label {
+            font-size: 0.625rem;
+            font-weight: 500;
+        }
+
+        /* Admin Desktop */
+        .admin-layout {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 1.5rem;
+            height: 700px;
+        }
+
+        .sidebar {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+
+        .nav-link {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9375rem;
+            margin-bottom: 0.25rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .nav-link:hover {
+            background: white;
+        }
+
+        .nav-link.active {
+            background: #2563eb;
+            color: white;
+        }
+
+        .main-content {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .main-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .btn-primary {
+            padding: 0.75rem 1.5rem;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #1e40af;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            padding: 1.25rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .stat-trend {
+            font-size: 0.75rem;
+            color: #22c55e;
+            margin-top: 0.25rem;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            text-align: left;
+            padding: 0.75rem;
+            font-size: 0.8125rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .table td {
+            padding: 1rem 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9375rem;
+        }
+
+        .table tr:hover {
+            background: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        /* Admin Mobile */
+        .admin-mobile-content {
+            padding: 1rem;
+            height: calc(100% - 120px);
+            overflow-y: auto;
+        }
+
+        .card-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .action-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-card:hover {
+            border-color: #2563eb;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+        }
+
+        .action-card-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .action-card h4 {
+            font-size: 1rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .action-card p {
+            font-size: 0.8125rem;
+            color: #64748b;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .split-layout, .admin-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sources-panel {
+                display: none;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎨 Diseño Final: Sistema Híbrido Adaptativo</h1>
+        <p>Este es el diseño final del Asistente de Conocimiento, mostrando las 4 vistas principales del sistema adaptativo. El diseño cambia según el rol (Usuario/Admin) y dispositivo (Desktop/Mobile) para optimizar la experiencia en cada contexto.</p>
+    </div>
+
+    <div class="controls">
+        <button class="view-btn active" onclick="showView(1)">
+            💻 Usuario Desktop
+        </button>
+        <button class="view-btn" onclick="showView(2)">
+            📱 Usuario Mobile
+        </button>
+        <button class="view-btn" onclick="showView(3)">
+            🖥️ Admin Desktop
+        </button>
+        <button class="view-btn" onclick="showView(4)">
+            📲 Admin Mobile
+        </button>
+    </div>
+
+    <div class="mockup-container">
+        <!-- Vista 1: Usuario Desktop -->
+        <div class="view active" id="view-1">
+            <div class="view-header">
+                <h2>💻 Usuario Desktop - Vista Dividida Conversacional</h2>
+                <div class="description">Layout Split 60/40 optimizado para velocidad + confianza. Chat prominente con panel de fuentes contextual.</div>
+            </div>
+
+            <div class="specs">
+                <div class="spec-item">
+                    <div class="spec-icon">📐</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Layout</div>
+                        <div class="spec-value">Split 60/40 (Chat + Fuentes)</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🎯</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Prioridad</div>
+                        <div class="spec-value">Velocidad + Confianza</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🧭</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Navegación</div>
+                        <div class="spec-value">Top bar minimalista</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">📊</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Densidad</div>
+                        <div class="spec-value">Espacioso</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mockup">
+                <div class="split-layout">
+                    <div class="top-bar" style="grid-column: 1 / -1; height: fit-content;">
+                        <div class="logo">🧠 Asistente de Conocimiento</div>
+                        <div class="top-actions">
+                            <button class="icon-btn" title="Generar Quiz">✨</button>
+                            <button class="icon-btn" title="Explorar Documentos">📚</button>
+                            <button class="icon-btn" title="Historial">🕐</button>
+                            <button class="icon-btn" title="Perfil">👤</button>
+                        </div>
+                    </div>
+
+                    <div class="chat-panel">
+                        <div class="chat-header">
+                            <h3>Conversación</h3>
+                        </div>
+
+                        <div class="messages">
+                            <div class="message user">
+                                <div class="avatar user">👤</div>
+                                <div class="bubble user">
+                                    ¿Cómo proceso un reembolso especial?
+                                </div>
+                            </div>
+
+                            <div class="message ai">
+                                <div class="avatar ai">🤖</div>
+                                <div class="bubble ai">
+                                    <p><strong>Proceso de Reembolso Especial</strong></p>
+                                    <p>Para procesar un reembolso especial, debes seguir estos pasos:</p>
+                                    <ol>
+                                        <li>Verificar la elegibilidad del afiliado en el sistema SIREH</li>
+                                        <li>Revisar que la documentación médica esté completa y vigente</li>
+                                        <li>Ingresar al módulo de Reembolsos con código RE-001</li>
+                                        <li>Completar el formulario F-47 con datos del paciente y prestación</li>
+                                        <li>Adjuntar documentación de respaldo digitalizada</li>
+                                        <li>Enviar a revisión del área de Auditoría Médica</li>
+                                    </ol>
+                                    <p>El tiempo estimado de procesamiento es de 5-7 días hábiles.</p>
+
+                                    <div class="source-chips">
+                                        <div class="source-chip">📄 Manual de Procedimientos - Cap. 7</div>
+                                        <div class="source-chip">📋 Formulario F-47</div>
+                                        <div class="source-chip">📜 Normativa N-2024-03</div>
+                                    </div>
+
+                                    <div class="quick-actions">
+                                        <button class="quick-action-btn">✨ Generar quiz sobre esto</button>
+                                        <button class="quick-action-btn">🎓 Crear ruta de aprendizaje</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="input-area">
+                            <textarea class="input-field" rows="1" placeholder="Escribe tu pregunta en lenguaje natural..."></textarea>
+                            <button class="send-btn">Enviar</button>
+                        </div>
+                    </div>
+
+                    <div class="sources-panel">
+                        <h3>📚 Fuentes Relacionadas</h3>
+
+                        <div class="doc-card active">
+                            <div class="doc-title">Manual de Procedimientos Administrativos</div>
+                            <div class="doc-meta">Capítulo 7: Reembolsos Especiales • Actualizado: 2024-08</div>
+                            <div class="doc-excerpt">
+                                "Para procesar un reembolso especial, el funcionario debe verificar primero la elegibilidad del afiliado según los criterios establecidos en la Tabla RE-01. El proceso requiere validación de documentación médica completa..."
+                            </div>
+                        </div>
+
+                        <div class="doc-card">
+                            <div class="doc-title">Formularios Administrativos</div>
+                            <div class="doc-meta">F-47: Solicitud de Reembolso Especial • Versión 2.3</div>
+                            <div class="doc-excerpt">
+                                "El formulario F-47 debe ser completado en su totalidad, incluyendo: datos del afiliado, prestación solicitada, monto, documentación de respaldo y firma autorizada..."
+                            </div>
+                        </div>
+
+                        <div class="doc-card">
+                            <div class="doc-title">Normativa Interna</div>
+                            <div class="doc-meta">N-2024-03: Actualizaciones de Procedimientos</div>
+                            <div class="doc-excerpt">
+                                "A partir de marzo 2024, todos los reembolsos especiales deben pasar por revisión de Auditoría Médica antes de aprobación final. Tiempo SLA: 5-7 días hábiles..."
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vista 2: Usuario Mobile -->
+        <div class="view" id="view-2">
+            <div class="view-header">
+                <h2>📱 Usuario Mobile - Chat-First con Referencias Inline</h2>
+                <div class="description">Chat full-screen optimizado para velocidad táctil. Fuentes como chips compactos, bottom nav para acceso a funcionalidades.</div>
+            </div>
+
+            <div class="specs">
+                <div class="spec-item">
+                    <div class="spec-icon">📐</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Layout</div>
+                        <div class="spec-value">Chat Full-Screen</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🎯</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Prioridad</div>
+                        <div class="spec-value">Velocidad Máxima</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🧭</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Navegación</div>
+                        <div class="spec-value">Bottom tabs (4)</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">👆</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Touch Targets</div>
+                        <div class="spec-value">Min 48px</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mockup">
+                <div class="mobile-frame">
+                    <div class="mobile-top-bar">
+                        <h3>Asistente de Conocimiento</h3>
+                    </div>
+
+                    <div class="mobile-messages">
+                        <div class="mobile-bubble user">
+                            ¿Cómo proceso un reembolso especial?
+                        </div>
+
+                        <div class="mobile-bubble ai">
+                            <p><strong>Proceso de Reembolso Especial</strong></p>
+                            <p>Pasos a seguir:</p>
+                            <p style="margin: 0.5rem 0;">1. Verificar elegibilidad en SIREH<br>
+                            2. Revisar documentación médica<br>
+                            3. Ingresar con código RE-001<br>
+                            4. Completar formulario F-47<br>
+                            5. Adjuntar documentos<br>
+                            6. Enviar a Auditoría Médica</p>
+                            <p>Tiempo: 5-7 días hábiles</p>
+
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.75rem;">
+                                <div class="mobile-source-chip">📄 Manual Cap. 7</div>
+                                <div class="mobile-source-chip">📋 Form F-47</div>
+                                <div class="mobile-source-chip">📜 N-2024-03</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mobile-input">
+                        <input type="text" placeholder="Escribe tu pregunta...">
+                        <div class="mobile-fab">💬</div>
+                    </div>
+
+                    <div class="bottom-nav">
+                        <div class="nav-item active">
+                            <div class="nav-icon">💬</div>
+                            <div class="nav-label">Chat</div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon">📚</div>
+                            <div class="nav-label">Documentos</div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon">✨</div>
+                            <div class="nav-label">Generar</div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon">👤</div>
+                            <div class="nav-label">Perfil</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vista 3: Admin Desktop -->
+        <div class="view" id="view-3">
+            <div class="view-header">
+                <h2>🖥️ Admin Desktop - Dashboard Empresarial Completo</h2>
+                <div class="description">Sidebar con navegación completa de secciones administrativas. Dashboard con KPIs y gestión integral del sistema.</div>
+            </div>
+
+            <div class="specs">
+                <div class="spec-item">
+                    <div class="spec-icon">📐</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Layout</div>
+                        <div class="spec-value">Sidebar (250px) + Main</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🎯</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Prioridad</div>
+                        <div class="spec-value">Funcionalidad Completa</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🧭</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Navegación</div>
+                        <div class="spec-value">Sidebar persistente</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">📊</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Densidad</div>
+                        <div class="spec-value">Balanceado-Denso</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mockup">
+                <div class="admin-layout">
+                    <div class="sidebar">
+                        <div class="sidebar-section">
+                            <div class="sidebar-title">Principal</div>
+                            <div class="nav-link active">
+                                <span>📊</span> Dashboard
+                            </div>
+                            <div class="nav-link">
+                                <span>📚</span> Gestión Documental
+                            </div>
+                            <div class="nav-link">
+                                <span>💬</span> Consultas
+                            </div>
+                        </div>
+
+                        <div class="sidebar-section">
+                            <div class="sidebar-title">Administración</div>
+                            <div class="nav-link">
+                                <span>👥</span> Usuarios
+                            </div>
+                            <div class="nav-link">
+                                <span>📈</span> Analíticas
+                            </div>
+                            <div class="nav-link">
+                                <span>⚙️</span> Configuración
+                            </div>
+                        </div>
+
+                        <div class="sidebar-section">
+                            <div class="sidebar-title">Cumplimiento</div>
+                            <div class="nav-link">
+                                <span>📋</span> Logs de Auditoría
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="main-content">
+                        <div class="main-header">
+                            <h2>Dashboard Principal</h2>
+                            <button class="btn-primary">+ Cargar Documento</button>
+                        </div>
+
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-label">Consultas Hoy</div>
+                                <div class="stat-value">143</div>
+                                <div class="stat-trend">↑ 12% vs ayer</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Documentos Indexados</div>
+                                <div class="stat-value">1,847</div>
+                                <div class="stat-trend">↑ 5 nuevos</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Tiempo Promedio</div>
+                                <div class="stat-value">1.6s</div>
+                                <div class="stat-trend">✓ Bajo objetivo (2s)</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Usuarios Activos</div>
+                                <div class="stat-value">67</div>
+                                <div class="stat-trend">↑ 8 conectados ahora</div>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-bottom: 1rem;">Consultas Recientes</h3>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Consulta</th>
+                                    <th>Tiempo Respuesta</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Juan Pérez</td>
+                                    <td>¿Cómo proceso un reembolso especial?</td>
+                                    <td>1.6s</td>
+                                    <td><span class="badge success">Exitosa</span></td>
+                                    <td>10:35 AM</td>
+                                </tr>
+                                <tr>
+                                    <td>María González</td>
+                                    <td>Procedimiento validación de bonos</td>
+                                    <td>1.9s</td>
+                                    <td><span class="badge success">Exitosa</span></td>
+                                    <td>10:28 AM</td>
+                                </tr>
+                                <tr>
+                                    <td>Carlos Rojas</td>
+                                    <td>Código de ética organizacional</td>
+                                    <td>1.4s</td>
+                                    <td><span class="badge success">Exitosa</span></td>
+                                    <td>10:15 AM</td>
+                                </tr>
+                                <tr>
+                                    <td>Ana Martínez</td>
+                                    <td>Proceso de auditoría médica</td>
+                                    <td>2.3s</td>
+                                    <td><span class="badge warning">Lenta</span></td>
+                                    <td>10:02 AM</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vista 4: Admin Mobile -->
+        <div class="view" id="view-4">
+            <div class="view-header">
+                <h2>📲 Admin Mobile - Gestión Táctil Optimizada</h2>
+                <div class="description">Bottom navigation con 5 tabs administrativos. Cards accionables y modals full-screen para gestión móvil completa.</div>
+            </div>
+
+            <div class="specs">
+                <div class="spec-item">
+                    <div class="spec-icon">📐</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Layout</div>
+                        <div class="spec-value">Cards + Bottom tabs</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🎯</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Prioridad</div>
+                        <div class="spec-value">Gestión Móvil</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">🧭</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Navegación</div>
+                        <div class="spec-value">Bottom tabs (5)</div>
+                    </div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-icon">👆</div>
+                    <div class="spec-content">
+                        <div class="spec-label">Touch Targets</div>
+                        <div class="spec-value">Min 48px</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mockup">
+                <div class="mobile-frame">
+                    <div class="mobile-top-bar">
+                        <h3>Panel de Administración</h3>
+                    </div>
+
+                    <div class="admin-mobile-content">
+                        <h3 style="margin-bottom: 1rem; font-size: 1.125rem;">Dashboard</h3>
+
+                        <div class="card-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 1.5rem;">
+                            <div class="stat-card" style="text-align: center;">
+                                <div class="stat-label">Consultas Hoy</div>
+                                <div class="stat-value" style="font-size: 1.75rem;">143</div>
+                                <div class="stat-trend">↑ 12%</div>
+                            </div>
+                            <div class="stat-card" style="text-align: center;">
+                                <div class="stat-label">Documentos</div>
+                                <div class="stat-value" style="font-size: 1.75rem;">1.8K</div>
+                                <div class="stat-trend">↑ 5 nuevos</div>
+                            </div>
+                            <div class="stat-card" style="text-align: center;">
+                                <div class="stat-label">Tiempo Avg</div>
+                                <div class="stat-value" style="font-size: 1.75rem;">1.6s</div>
+                                <div class="stat-trend">✓ OK</div>
+                            </div>
+                            <div class="stat-card" style="text-align: center;">
+                                <div class="stat-label">Usuarios</div>
+                                <div class="stat-value" style="font-size: 1.75rem;">67</div>
+                                <div class="stat-trend">↑ 8 online</div>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Acciones Rápidas</h3>
+                        <div class="card-grid">
+                            <div class="action-card">
+                                <div class="action-card-icon">📄</div>
+                                <h4>Cargar Documento</h4>
+                                <p>Agregar nuevo documento al repositorio</p>
+                            </div>
+
+                            <div class="action-card">
+                                <div class="action-card-icon">💬</div>
+                                <h4>Ver Consultas</h4>
+                                <p>Revisar historial y consultas recientes</p>
+                            </div>
+
+                            <div class="action-card">
+                                <div class="action-card-icon">👥</div>
+                                <h4>Gestionar Usuarios</h4>
+                                <p>Administrar roles y permisos</p>
+                            </div>
+
+                            <div class="action-card">
+                                <div class="action-card-icon">📊</div>
+                                <h4>Ver Analíticas</h4>
+                                <p>Métricas detalladas del sistema</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bottom-nav">
+                        <div class="nav-item active">
+                            <div class="nav-icon">📊</div>
+                            <div class="nav-label">Dashboard</div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon">📚</div>
+                            <div class="nav-label">Docs</div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon">💬</div>
+                            <div class="nav-label">Consultas</div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon">📈</div>
+                            <div class="nav-label">Stats</div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon">⚙️</div>
+                            <div class="nav-label">Config</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showView(n) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById('view-' + n).classList.add('active');
+            document.querySelectorAll('.view-btn')[n - 1].classList.add('active');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Navegación con teclado
+        document.addEventListener('keydown', (e) => {
+            const current = Array.from(document.querySelectorAll('.view')).findIndex(v => v.classList.contains('active')) + 1;
+            if (e.key === 'ArrowRight' && current < 4) showView(current + 1);
+            if (e.key === 'ArrowLeft' && current > 1) showView(current - 1);
+        });
+    </script>
+</body>
+</html>

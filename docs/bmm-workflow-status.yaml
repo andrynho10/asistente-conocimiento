@@ -1,0 +1,44 @@
+# Workflow Status Template
+# This tracks progress through BMM methodology phases
+# Phase 3/4 (Implementation) is tracked separately in sprint-status.yaml
+
+# generated: 2025-11-10
+# project: asistente-conocimiento
+# project_type: software
+# selected_track: method
+# field_type: greenfield
+# workflow_path: method-greenfield.yaml
+
+# STATUS DEFINITIONS:
+# ==================
+# Initial Status (before completion):
+#   - required: Must be completed to progress
+#   - optional: Can be completed but not required
+#   - recommended: Strongly suggested but not required
+#   - conditional: Required only if certain conditions met (e.g., if_has_ui)
+#
+# Completion Status:
+#   - {file-path}: File created/found (e.g., "docs/product-brief.md")
+#   - skipped: Optional/conditional workflow that was skipped
+
+generated: "2025-11-10"
+project: "asistente-conocimiento"
+project_type: "software"
+selected_track: "method"
+field_type: "greenfield"
+workflow_path: "method-greenfield.yaml"
+
+workflow_status:
+  # Phase 1: Planning
+  prd: docs/PRD.md  # agent: pm
+  validate-prd: optional  # agent: pm
+  ux-design: docs/ux-design-specification.md  # agent: ux-designer
+
+  # Phase 2: Solutioning
+  architecture: docs/architecture.md  # agent: architect
+  validate-architecture: optional  # agent: architect
+  solutioning-gate-check: docs/bmm-readiness-assessment-2025-11-11.md  # agent: architect
+
+  # Phase 3: Implementation
+  sprint-planning: .bmad-ephemeral/sprint-status.yaml  # agent: sm
+  story-development: required  # agent: sm
