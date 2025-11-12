@@ -95,7 +95,8 @@ backend/data/
 .bmad/
 .bmad-ephemeral/
 .claude/
-docs/
+docs/bmm-workflow-status.yaml
+docs/bmm-readiness-assessment-*.md
 
 # OS generated files
 .DS_Store
