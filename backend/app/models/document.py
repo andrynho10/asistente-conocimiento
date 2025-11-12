@@ -20,7 +20,7 @@ class Document(DocumentBase, table=True):
     """Modelo de documento persistente en base de datos"""
     id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(unique=True, max_length=500)
-    upload_date: datetime = Field(default_factory=datetime.utcnow)
+    upload_date: datetime = Field(default_factory=datetime.now(datetime.UTC))
     user_id: int = Field(foreign_key="user.id")
 
     # Relación con usuario

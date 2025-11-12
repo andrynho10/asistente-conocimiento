@@ -22,7 +22,7 @@ class AuditLog(AuditLogBase, table=True):
     """Modelo de registro de auditoría persistente en base de datos"""
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relación con usuario
     user: "User" = Relationship(back_populates="audit_logs")
