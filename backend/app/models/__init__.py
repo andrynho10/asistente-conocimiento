@@ -3,7 +3,16 @@ Modelos SQLModel para el sistema de asistente de conocimiento
 """
 
 from .user import User, UserCreate, UserRead, UserUpdate, UserRole
-from .document import Document, DocumentCreate, DocumentRead, DocumentUpdate
+from .document import (
+    Document,
+    DocumentCreate,
+    DocumentRead,
+    DocumentUpdate,
+    DocumentCategory,
+    DocumentCategoryCreate,
+    DocumentCategoryRead,
+    DocumentCategoryUpdate
+)
 from .audit import (
     AuditLog,
     AuditLogCreate,
@@ -25,6 +34,10 @@ __all__ = [
     "DocumentCreate",
     "DocumentRead",
     "DocumentUpdate",
+    "DocumentCategory",
+    "DocumentCategoryCreate",
+    "DocumentCategoryRead",
+    "DocumentCategoryUpdate",
 
     # Audit models
     "AuditLog",

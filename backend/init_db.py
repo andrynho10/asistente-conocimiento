@@ -73,7 +73,7 @@ def create_predefined_categories(session: Session) -> None:
         # Verificar si ya existe un documento para esta categoría
         stmt = select(Document).where(
             Document.title == f"Categoría: {category_name}",
-            Document.user_id == admin_user.id
+            Document.uploaded_by == admin_user.id
         )
         existing = session.exec(stmt).first()
 
@@ -86,9 +86,9 @@ def create_predefined_categories(session: Session) -> None:
             title=f"Categoría: {category_name}",
             category=category_name,
             file_path=f"/categories/{category_name.lower().replace(' ', '_')}.md",
-            file_size=0,
-            user_id=admin_user.id,
-            status="active"
+            file_type="txt",
+            file_size_bytes=0,
+            uploaded_by=admin_user.id
         )
 
         session.add(category_doc)
@@ -116,13 +116,15 @@ def create_sample_documents(session: Session) -> None:
             "title": "Manual deEmpleado",
             "category": "Políticas RRHH",
             "file_path": "/docs/manual_empleado.pdf",
-            "file_size": 1024000  # 1MB
+            "file_type": "pdf",
+            "file_size_bytes": 1024000  # 1MB
         },
         {
             "title": "Procedimiento deOnboarding",
             "category": "Procedimientos Operativos",
             "file_path": "/docs/procedimiento_onboarding.pdf",
-            "file_size": 512000  # 512KB
+            "file_type": "pdf",
+            "file_size_bytes": 512000  # 512KB
         }
     ]
 
@@ -138,7 +140,7 @@ def create_sample_documents(session: Session) -> None:
             continue
 
         doc = Document(
-            user_id=admin_user.id,
+            uploaded_by=admin_user.id,
             **doc_data
         )
         session.add(doc)

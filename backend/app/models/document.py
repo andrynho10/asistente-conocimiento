@@ -11,20 +11,36 @@ if TYPE_CHECKING:
     from .user import User
 
 
+class DocumentCategory(SQLModel, table=True):
+    """Modelo de categoría de documento"""
+    __tablename__ = "document_categories"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=100, unique=True)
+    description: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class DocumentBase(SQLModel):
     """Base model para Document con campos comunes"""
-    title: str = Field(max_length=255)
-    category: str = Field(max_length=100, default="General")
-    file_size: int = Field(ge=0)  # ge = greater or equal (tamaño >= 0)
-    status: str = Field(default="active", max_length=20)
+    title: str = Field(max_length=200, index=True)
+    description: str | None = Field(default=None)
+    category: str = Field(max_length=100, index=True)
+    file_type: str = Field(max_length=10)  # 'pdf' o 'txt'
+    file_size_bytes: int
 
 
 class Document(DocumentBase, table=True):
     """Modelo de documento persistente en base de datos"""
+    __tablename__ = "documents"
+
     id: int | None = Field(default=None, primary_key=True)
-    file_path: str = Field(unique=True, max_length=500)
-    upload_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    user_id: int = Field(foreign_key="user.id")
+    file_path: str = Field(max_length=500, unique=True)
+    upload_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    uploaded_by: int = Field(foreign_key="user.id")
+    content_text: str | None = Field(default=None)
+    is_indexed: bool = Field(default=False)
+    indexed_at: datetime | None = Field(default=None)
 
     # Relación con usuario
     user: "User" = Relationship(back_populates="documents")
@@ -33,7 +49,7 @@ class Document(DocumentBase, table=True):
 class DocumentCreate(DocumentBase):
     """Schema para crear un nuevo documento"""
     file_path: str = Field(max_length=500)
-    user_id: int
+    uploaded_by: int
 
 
 class DocumentRead(DocumentBase):
@@ -41,11 +57,42 @@ class DocumentRead(DocumentBase):
     id: int
     file_path: str
     upload_date: datetime
-    user_id: int
+    uploaded_by: int
+    content_text: str | None
+    is_indexed: bool
+    indexed_at: datetime | None
 
 
 class DocumentUpdate(SQLModel):
     """Schema para actualizar un documento existente"""
-    title: str | None = Field(default=None, max_length=255)
+    title: str | None = Field(default=None, max_length=200)
+    description: str | None = Field(default=None)
     category: str | None = Field(default=None, max_length=100)
-    status: str | None = Field(default=None, max_length=20)
+    file_type: str | None = Field(default=None, max_length=10)
+    content_text: str | None = Field(default=None)
+    is_indexed: bool | None = Field(default=None)
+    indexed_at: datetime | None = Field(default=None)
+
+
+# Schemas para DocumentCategory
+class DocumentCategoryBase(SQLModel):
+    """Base model para DocumentCategory con campos comunes"""
+    name: str = Field(max_length=100)
+    description: str | None = Field(default=None)
+
+
+class DocumentCategoryCreate(DocumentCategoryBase):
+    """Schema para crear una nueva categoría de documento"""
+    pass
+
+
+class DocumentCategoryRead(DocumentCategoryBase):
+    """Schema para leer datos de categoría de documento"""
+    id: int
+    created_at: datetime
+
+
+class DocumentCategoryUpdate(SQLModel):
+    """Schema para actualizar una categoría de documento existente"""
+    name: str | None = Field(default=None, max_length=100)
+    description: str | None = Field(default=None)

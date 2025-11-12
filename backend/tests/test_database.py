@@ -141,13 +141,14 @@ class TestDocumentModel:
         test_db.commit()
         test_db.refresh(user)
 
-        # Crear documento
+        # Crear documento con nuevo esquema (Story 2.1)
         document = Document(
             title="Test Document",
             category="Test Category",
+            file_type="pdf",
+            file_size_bytes=1024,
             file_path="/docs/test.pdf",
-            file_size=1024,
-            user_id=user.id
+            uploaded_by=user.id
         )
 
         test_db.add(document)
@@ -157,11 +158,13 @@ class TestDocumentModel:
         assert document.id is not None
         assert document.title == "Test Document"
         assert document.category == "Test Category"
+        assert document.file_type == "pdf"
+        assert document.file_size_bytes == 1024
         assert document.file_path == "/docs/test.pdf"
-        assert document.file_size == 1024
-        assert document.user_id == user.id
+        assert document.uploaded_by == user.id
         assert document.upload_date is not None
-        assert document.status == "active"
+        assert document.is_indexed is False  # Default
+        assert document.indexed_at is None   # Default
 
         # Verificar relación
         assert document.user == user
@@ -182,9 +185,11 @@ class TestDocumentModel:
         # Primer documento
         doc1 = Document(
             title="Doc 1",
+            category="Test",
+            file_type="pdf",
             file_path="/docs/same.pdf",
-            file_size=1024,
-            user_id=user.id
+            file_size_bytes=1024,
+            uploaded_by=user.id
         )
         test_db.add(doc1)
         test_db.commit()
@@ -192,9 +197,11 @@ class TestDocumentModel:
         # Intentar duplicar file_path
         doc2 = Document(
             title="Doc 2",
+            category="Test",
+            file_type="pdf",
             file_path="/docs/same.pdf",  # mismo path
-            file_size=2048,
-            user_id=user.id
+            file_size_bytes=2048,
+            uploaded_by=user.id
         )
         test_db.add(doc2)
 

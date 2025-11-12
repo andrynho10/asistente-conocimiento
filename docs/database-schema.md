@@ -7,22 +7,42 @@ Base de datos SQLite local para el prototipo del Asistente de Conocimiento. Ubic
 ## Diagrama Entidad-Relación (texto)
 
 ```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│      User       │       │    Document     │       │    AuditLog     │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK)         │───┐   │ id (PK)         │       │ id (PK)         │
-│ username (UQ)   │   │   │ title           │       │ user_id (FK)    │───┐
-│ email (UQ)      │   └───│ category        │       │ action          │   │
-│ hashed_password │       │ file_path (UQ)  │       │ resource_type   │   │
-│ full_name       │       │ file_size       │       │ resource_id     │   │
-│ role            │       │ upload_date     │       │ details         │   │
-│ is_active       │       │ user_id (FK)    │───────┤ ip_address      │   │
-│ created_at      │       │ status          │       │ timestamp       │   │
-│ updated_at      │       └─────────────────┘       └─────────────────┘   │
-└─────────────────┘                                                        │
-          │                                                             │
-          └─────────────────────────────────────────────────────────────┘
+┌─────────────────┐       ┌──────────────────┐       ┌─────────────────┐
+│      User       │       │    Document      │       │ DocumentCategory│
+├─────────────────┤       ├──────────────────┤       ├─────────────────┤
+│ id (PK)         │───┐   │ id (PK)          │       │ id (PK)         │
+│ username (UQ)   │   │   │ title (IDX)      │       │ name (UQ)       │
+│ email (UQ)      │   │   │ description      │       │ description     │
+│ hashed_password │   └───│ category (IDX)   │       │ created_at      │
+│ full_name       │       │ file_path (UQ)   │       └─────────────────┘
+│ role            │       │ file_type        │               ▲
+│ is_active       │       │ file_size_bytes  │               │
+│ created_at      │       │ upload_date (IDX)│
+│ updated_at      │       │ uploaded_by (FK) │
+│ documents[]     │       │ content_text     │
+│ audit_logs[]    │       │ is_indexed       │
+└─────────────────┘       │ indexed_at       │
+          │               └──────────────────┘
+          │                       │
+          │              ┌─────────────────┐
+          │              │    AuditLog     │
+          └──────────────┤ user_id (FK)    │
+                         ├─────────────────┤
+                         │ id (PK)         │
+                         │ action          │
+                         │ resource_type   │
+                         │ resource_id     │
+                         │ details         │
+                         │ ip_address      │
+                         │ timestamp       │
+                         └─────────────────┘
 ```
+
+## Relaciones
+
+- `User` ←→ `Document` (OneToMany): Un usuario puede cargar múltiples documentos
+- `DocumentCategory` ← `Document` (String Reference): Document.category referencia DocumentCategory.name
+- `User` ←→ `AuditLog` (OneToMany): Un usuario tiene múltiples registros de auditoría
 
 ## Tablas
 
@@ -51,29 +71,66 @@ Tabla de usuarios del sistema con autenticación y autorización basada en roles
 - `email` debe ser único
 - `role` debe ser 'admin' o 'user'
 
-### 2. Document
+### 2. DocumentCategory
 
-Tabla para almacenar información de documentos cargados en el sistema.
+Tabla para categorías predefinidas de documentos (Story 2.1).
+
+| Columna | Tipo | Restricciones | Descripción |
+|---------|------|---------------|-------------|
+| id | INTEGER | PRIMARY KEY, AUTOINCREMENT | Identificador único de la categoría |
+| name | VARCHAR(100) | UNIQUE, NOT NULL | Nombre único de la categoría |
+| description | TEXT | NULL | Descripción detallada de la categoría |
+| created_at | DATETIME | NOT NULL, DEFAULT now() | Fecha de creación de la categoría |
+
+#### Índices
+- `uq_document_categories_name` (único) en name
+
+#### Constraints
+- `name` debe ser único
+
+#### Datos Iniciales (seed data)
+Las siguientes categorías se insertan automáticamente durante la migración:
+1. **Políticas RRHH** - Documentos de políticas de recursos humanos, beneficios, contratación y gestión de personal
+2. **Procedimientos Operativos** - Manuales de procedimientos estándar, guías operativas y procesos de negocio
+3. **Manuales Técnicos** - Documentación técnica, especificaciones, manuales de usuario y guías de sistemas
+4. **FAQs** - Preguntas frecuentes, guías de solución de problemas y respuestas a consultas comunes
+5. **Normativas** - Regulaciones, normativas legales, estándares de cumplimiento y requerimientos regulatorios
+
+### 3. Document
+
+Tabla para almacenar metadatos de documentos y contenido extraído (Story 2.1).
 
 | Columna | Tipo | Restricciones | Descripción |
 |---------|------|---------------|-------------|
 | id | INTEGER | PRIMARY KEY, AUTOINCREMENT | Identificador único del documento |
-| title | VARCHAR(255) | NOT NULL | Título del documento |
-| category | VARCHAR(100) | NOT NULL, DEFAULT 'General' | Categoría del documento |
-| file_path | VARCHAR(500) | UNIQUE, NOT NULL | Ruta única del archivo |
-| file_size | INTEGER | NOT NULL, >= 0 | Tamaño del archivo en bytes |
-| upload_date | DATETIME | NOT NULL | Fecha de carga del documento |
-| user_id | INTEGER | FOREIGN KEY, NOT NULL | ID del usuario que cargó el documento |
-| status | VARCHAR(20) | NOT NULL, DEFAULT 'active' | Estado del documento |
+| title | VARCHAR(200) | NOT NULL, INDEX | Título del documento, indexado para búsquedas |
+| description | TEXT | NULL | Descripción opcional del documento |
+| category | VARCHAR(100) | NOT NULL, INDEX | Categoría del documento (referencia string a DocumentCategory.name) |
+| file_type | VARCHAR(10) | NOT NULL | Tipo de archivo: 'pdf' o 'txt' |
+| file_size_bytes | INTEGER | NOT NULL | Tamaño del archivo en bytes |
+| file_path | VARCHAR(500) | UNIQUE, NOT NULL | Ruta única del archivo en sistema |
+| upload_date | DATETIME | NOT NULL, INDEX, DEFAULT now() | Fecha de carga del documento |
+| uploaded_by | INTEGER | FOREIGN KEY, NOT NULL | ID del usuario que cargó el documento |
+| content_text | TEXT | NULL | Texto extraído del documento (para Story 2.3) |
+| is_indexed | BOOLEAN | NOT NULL, DEFAULT FALSE | Indica si el documento está indexado para búsqueda |
+| indexed_at | DATETIME | NULL | Fecha cuando se indexó el documento (Story 2.4) |
+
+#### Índices
+- `ix_documents_title` en title (para búsquedas rápidas por título)
+- `ix_documents_category` en category (para filtrar por categoría)
+- `ix_documents_upload_date` en upload_date (para ordenamiento por fecha)
 
 #### Relaciones
-- `user_id` referencia `user(id)` (ManyToOne)
+- `uploaded_by` referencia `user(id)` (ManyToOne)
+- `category` referencia string a `DocumentCategory.name` (sin FK por simplicidad MVP)
 
 #### Constraints
 - `file_path` debe ser único
-- `file_size` debe ser >= 0
+- `file_type` debe ser 'pdf' o 'txt'
+- `category` debe corresponder a una categoría válida (validación a nivel de aplicación)
+- `uploaded_by` debe referenciar un usuario existente
 
-### 3. AuditLog
+### 4. AuditLog
 
 Tabla para auditoría de acciones en el sistema (cumplimiento Ley 19.628).
 
@@ -106,12 +163,15 @@ VALUES ('admin', 'admin@example.com', 'Administrador del Sistema', '$2b$12$nApyQ
 ### Categorías Predefinidas
 
 ```sql
--- Categorías base para el sistema
-INSERT INTO document (title, category, file_path, file_size, upload_date, user_id, status)
-VALUES
-  ('Categoría: Políticas RRHH', 'Políticas RRHH', '/categories/politicas_rrhh.md', 0, datetime('now'), 1, 'active'),
-  ('Categoría: Procedimientos Operativos', 'Procedimientos Operativos', '/categories/procedimientos_operativos.md', 0, datetime('now'), 1, 'active'),
-  ('Categoría: Manuales Técnicos', 'Manuales Técnicos', '/categories/manuales_tecnicos.md', 0, datetime('now'), 1, 'active');
+-- Ver categorías disponibles
+SELECT id, name, description FROM document_categories ORDER BY name;
+
+-- Resultado esperado:
+-- 1 | FAQs | Preguntas frecuentes, guías de solución de problemas y respuestas a consultas comunes
+-- 2 | Manuales Técnicos | Documentación técnica, especificaciones, manuales de usuario y guías de sistemas
+-- 3 | Normativas | Regulaciones, normativas legales, estándares de cumplimiento y requerimientos regulatorios
+-- 4 | Políticas RRHH | Documentos de políticas de recursos humanos, beneficios, contratación y gestión de personal
+-- 5 | Procedimientos Operativos | Manuales de procedimientos estándar, guías operativas y procesos de negocio
 ```
 
 ## Queries de Verificación
@@ -123,9 +183,37 @@ SELECT id, username, email, role, is_active FROM user;
 
 ### Verificar documentos por categoría
 ```sql
-SELECT category, COUNT(*) as count
-FROM document
-GROUP BY category;
+SELECT dc.name, COUNT(d.id) as document_count
+FROM document_categories dc
+LEFT JOIN documents d ON dc.name = d.category
+GROUP BY dc.id, dc.name
+ORDER BY dc.name;
+```
+
+### Verificar documentos recientes
+```sql
+SELECT d.title, d.category, d.file_type, d.upload_date, u.username
+FROM documents d
+JOIN user u ON d.uploaded_by = u.id
+ORDER BY d.upload_date DESC
+LIMIT 10;
+```
+
+### Verificar documentos por tipo de archivo
+```sql
+SELECT file_type, COUNT(*) as count, SUM(file_size_bytes) as total_size_bytes
+FROM documents
+GROUP BY file_type;
+```
+
+### Verificar documentos indexados
+```sql
+SELECT
+  is_indexed,
+  COUNT(*) as count,
+  COUNT(CASE WHEN indexed_at IS NOT NULL THEN 1 END) as indexed_count
+FROM documents
+GROUP BY is_indexed;
 ```
 
 ### Verificar logs de auditoría recientes
@@ -141,8 +229,9 @@ LIMIT 10;
 ```sql
 SELECT u.username, COUNT(d.id) as document_count
 FROM user u
-LEFT JOIN document d ON u.id = d.user_id
-GROUP BY u.id, u.username;
+LEFT JOIN documents d ON u.id = d.uploaded_by
+GROUP BY u.id, u.username
+ORDER BY document_count DESC;
 ```
 
 ## Scripts de Mantenimiento
@@ -166,12 +255,38 @@ ls -lh database/asistente_conocimiento.db
 
 Las migraciones se gestionan con Alembic en `backend/alembic/`:
 
-- **23b7d269978c_initial_schema.py**: Creación inicial de tablas user, document, auditlog
+- **23b7d269978c_initial_schema.py**: Creación inicial de tablas user, document, auditlog (Epic 1)
+- **3336ed844a79_add_documents_models_and_document_.py**: Story 2.1 - Modelos Document y DocumentCategory con índices y seed data
 
 Para ver historial de migraciones:
 ```bash
 cd backend && poetry run alembic history
 ```
+
+Para ver migración actual:
+```bash
+cd backend && poetry run alembic current
+```
+
+## Cambios Recientes - Story 2.1 (Modelos de Datos para Documentos y Metadatos)
+
+### Novedades principales
+- **Nueva tabla**: `document_categories` con 5 categorías predefinidas
+- **Tabla actualizada**: `documents` renombrada a `documents` (ya existía pero extendida)
+- **Campos nuevos en documents**: description, file_type, file_size_bytes (renombrado), category (indexado), uploaded_by (FK), content_text, is_indexed, indexed_at
+- **Índices agregados**: title, category, upload_date para optimizar búsquedas
+- **Seed data**: 5 categorías predefinidas insertadas automáticamente
+
+### Impacto en queries existentes
+- Los queries a `document` ahora deben usar `documents` (plural)
+- `file_size` renombrado a `file_size_bytes`
+- `user_id` renombrado a `uploaded_by`
+- Se agregaron nuevos campos útiles para búsquedas y filtrado
+
+### Mejoras de performance
+- Índices en campos frecuentemente consultados (title, category, upload_date)
+- Constraint UNIQUE en file_path mantiene integridad
+- FK a user.id asegura consistencia de datos
 
 ## Consideraciones de Seguridad
 
