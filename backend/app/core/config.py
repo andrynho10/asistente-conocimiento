@@ -1,27 +1,176 @@
-from pydantic_settings import BaseSettings
+import os
 from typing import Optional
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
+
 class Settings(BaseSettings):
-    model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    """
+    Configuración centralizada de la aplicación usando Pydantic BaseSettings.
+    Carga variables desde archivo .env y las valida.
+    """
 
-    # Security Configuration
-    secret_key: str = "your-super-secret-jwt-key-change-in-production"
-    jwt_algorithm: str = "HS256"
-    jwt_expiration_hours: int = 24
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+        validate_assignment=True
+    )
 
-    # Database
-    database_url: str = "sqlite:///./database.db"
+    # Database Configuration
+    database_url: str = Field(
+        default="sqlite:///./database/asistente_conocimiento.db",
+        description="URL de conexión a la base de datos"
+    )
+
+    # Security Configuration - CRITICAL VARIABLES
+    secret_key: str = Field(
+        description="Clave secreta para JWT - REQUIRED, mínimo 32 caracteres"
+    )
+    jwt_algorithm: str = Field(default="HS256", description="Algoritmo JWT")
+    jwt_expiration_hours: int = Field(default=24, description="Horas de expiración JWT")
 
     # Ollama / LLM Configuration
-    ollama_host: Optional[str] = "http://localhost:11434"
-    ollama_model: Optional[str] = "llama3.1:8b-instruct-q4_K_M"
+    ollama_host: str = Field(
+        default="http://localhost:11434",
+        description="URL del servidor Ollama"
+    )
+    ollama_model: str = Field(
+        default="llama3.1:8b-instruct-q4_K_M",
+        description="Modelo de lenguaje a usar en Ollama"
+    )
+    llm_temperature: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=2.0,
+        description="Temperatura para generación de texto (0.0-2.0)"
+    )
+    llm_max_tokens: int = Field(
+        default=500,
+        ge=1,
+        le=8192,
+        description="Máximo de tokens para respuestas LLM"
+    )
+    llm_context_size: int = Field(
+        default=8192,
+        ge=1024,
+        description="Tamaño del contexto para el modelo LLM"
+    )
 
     # Development Settings
-    debug: Optional[bool] = False
-    log_level: Optional[str] = "info"
+    flask_env: str = Field(
+        default="development",
+        description="Entorno de ejecución (development/production)"
+    )
+    debug: bool = Field(default=True, description="Modo debug")
+    log_level: str = Field(
+        default="info",
+        description="Nivel de logging (debug/info/warning/error)"
+    )
 
     # CORS Settings
-    allowed_origins: Optional[str] = "http://localhost:5173,http://127.0.0.1:5173"
+    allowed_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173",
+        description="Orígenes permitidos para CORS (separados por comas)"
+    )
 
-settings = Settings()
+    # Validators
+    @validator('secret_key')
+    def validate_secret_key(cls, v):
+        """Validador crítico para SECRET_KEY"""
+        if not v:
+            raise ValueError('SECRET_KEY es requerido y no puede estar vacío')
+
+        if len(v) < 32:
+            raise ValueError(
+                f'SECRET_KEY debe tener al menos 32 caracteres. Actual: {len(v)} caracteres. '
+                'Genera una clave segura con: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+
+        # Verificar que no sea el valor por defecto inseguro
+        insecure_defaults = [
+            "your-super-secret-jwt-key-change-in-production",
+            "your-secret-key-here-replace-with-secure-random-value-min-64-chars",
+            "secret", "test", "dev", "key"
+        ]
+
+        if any(insecure in v.lower() for insecure in insecure_defaults):
+            raise ValueError(
+                'SECRET_KEY parece ser un valor inseguro. '
+                'Genera una clave segura con: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+
+        return v
+
+    @validator('database_url')
+    def validate_database_url(cls, v):
+        """Validador para URL de base de datos"""
+        if not v:
+            raise ValueError('DATABASE_URL es requerido')
+
+        # Validar formatos soportados
+        supported_schemes = ['sqlite', 'postgresql', 'mysql']
+        scheme = v.split('://')[0] if '://' in v else None
+
+        if not scheme or scheme not in supported_schemes:
+            raise ValueError(
+                f'DATABASE_URL debe usar un esquema soportado: {", ".join(supported_schemes)}. '
+                f'Valor actual: {v[:50]}...'
+            )
+
+        return v
+
+    @validator('ollama_host')
+    def validate_ollama_host(cls, v):
+        """Validador para URL de Ollama"""
+        if not v:
+            raise ValueError('OLLAMA_HOST es requerido')
+
+        # Validar formato de URL
+        if not (v.startswith('http://') or v.startswith('https://')):
+            raise ValueError(
+                f'OLLAMA_HOST debe ser una URL válida. Formato esperado: http://host:port. '
+                f'Valor actual: {v}'
+            )
+
+        return v
+
+    @validator('flask_env')
+    def validate_environment(cls, v):
+        """Validador para entorno de ejecución"""
+        valid_envs = ['development', 'testing', 'production']
+        if v.lower() not in valid_envs:
+            raise ValueError(
+                f'FLASK_ENV debe ser uno de: {", ".join(valid_envs)}. Valor actual: {v}'
+            )
+        return v.lower()
+
+    def validate_all_settings(self) -> None:
+        """
+        Método de validación completo que se ejecuta al inicio.
+        Lanza ValueError si alguna validación crítica falla.
+        """
+        try:
+            # Forzar validación de todos los campos
+            _ = self.secret_key
+            _ = self.database_url
+            _ = self.ollama_host
+            _ = self.flask_env
+
+        except ValueError as e:
+            raise ValueError(f"❌ Error de configuración: {e}")
+
+    @classmethod
+    def create_with_validation(cls) -> 'Settings':
+        """
+        Factory method que crea instancia y ejecuta validación completa.
+        Uso en startup de la aplicación.
+        """
+        settings = cls()
+        settings.validate_all_settings()
+        return settings
+
+
+# Singleton instance para uso en la aplicación
+settings = Settings.create_with_validation()

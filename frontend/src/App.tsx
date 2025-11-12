@@ -1,29 +1,66 @@
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LoginPage } from '@/pages/LoginPage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/hooks/useAuth';
+
+// Crear cliente de React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+/**
+ * Componente para redirección de la raíz
+ * Si está autenticado → /dashboard
+ * Si no está autenticado → /login
+ */
+const RootRedirect = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600">Cargando...</div>
+      </div>
+    );
+  }
+
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Asistente de Conocimiento Corporativo
-        </h1>
-        <p className="text-gray-600 mb-8">
-          Sistema de IA Generativa para Capacitación
-        </p>
-        <button
-          onClick={() => setCount((count) => count + 1)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-        >
-          count is {count}
-        </button>
-        <p className="text-sm text-gray-500 mt-4">
-          Frontend en desarrollo con Vite + React + TypeScript
-        </p>
-      </div>
-    </div>
-  )
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          {/* Ruta raíz - redirige según autenticación */}
+          <Route path="/" element={<RootRedirect />} />
+
+          {/* Ruta de login */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Ruta protegida de dashboard */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Ruta 404 - redirige a login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
 }
 
-export default App
+export default App;
