@@ -2,10 +2,13 @@
 Modelo de documento para el sistema de asistente de conocimiento
 """
 
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .user import User
 
 
 class DocumentBase(SQLModel):
@@ -20,7 +23,7 @@ class Document(DocumentBase, table=True):
     """Modelo de documento persistente en base de datos"""
     id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(unique=True, max_length=500)
-    upload_date: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    upload_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: int = Field(foreign_key="user.id")
 
     # Relación con usuario

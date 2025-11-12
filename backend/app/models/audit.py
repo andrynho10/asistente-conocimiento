@@ -3,10 +3,13 @@ Modelo de auditoría para el sistema de asistente de conocimiento
 Cumple con requerimientos de cumplimiento normativo Ley 19.628
 """
 
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .user import User
 
 
 class AuditLogBase(SQLModel):
@@ -22,7 +25,7 @@ class AuditLog(AuditLogBase, table=True):
     """Modelo de registro de auditoría persistente en base de datos"""
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
-    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relación con usuario
     user: "User" = Relationship(back_populates="audit_logs")

@@ -2,11 +2,15 @@
 Modelo de usuario para el sistema de asistente de conocimiento
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .audit import AuditLog
+    from .document import Document
 
 
 class UserRole(str, Enum):
@@ -28,8 +32,8 @@ class User(UserBase, table=True):
     """Modelo de usuario persistente en base de datos"""
     id: int | None = Field(default=None, primary_key=True)
     hashed_password: str = Field(max_length=255)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relaciones
     documents: List["Document"] = Relationship(back_populates="user")
