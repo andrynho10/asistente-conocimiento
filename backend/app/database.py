@@ -1,22 +1,20 @@
 """
 Configuración de base de datos para Asistente de Conocimiento
-Usa SQLModel con SQLite para desarrollo local
+Usa SQLModel con configuración centralizada desde settings
 """
 
-import os
 from typing import Generator
 from sqlmodel import create_engine, Session, SQLModel
-from dotenv import load_dotenv
+from app.core.config import get_settings
 
-# Cargar variables de entorno
-load_dotenv()
-
-# Obtener URL de base de datos desde variables de entorno
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./database/asistente_conocimiento.db")
+# Obtener URL de base de datos desde configuración centralizada
+# La configuración ya carga variables de entorno automáticamente
+settings = get_settings()
+DATABASE_URL = settings.database_url
 
 # Crear motor de base de datos
 # echo=True muestra las queries SQL en consola (útil para desarrollo)
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=settings.debug)
 
 
 def create_db_and_tables() -> None:

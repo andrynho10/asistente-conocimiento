@@ -137,7 +137,7 @@ def test_env_example_has_required_variables(backend_root):
         assert var in content, f"Variable de entorno {var} no está en .env.example"
 
     # Verificar valores específicos mencionados en AC #3
-    assert 'sqlite:///./asistente_conocimiento.db' in content, "DATABASE_URL por defecto no está correcto"
+    assert 'sqlite:///./database/asistente_conocimiento.db' in content, "DATABASE_URL por defecto no está correcto"
     assert 'http://localhost:11434' in content, "OLLAMA_HOST por defecto no está correcto"
     assert 'llama3.1:8b-instruct-q4_K_M' in content, "OLLAMA_MODEL por defecto no está correcto"
 

@@ -4,13 +4,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_db_and_tables
 from app.auth.routes import router as auth_router
 from app.auth.models import HealthResponse
+from app.core.config import get_settings
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup: Validar configuración y crear base de datos
+    settings = get_settings()
+    print(f"🚀 Iniciando Asistente de Conocimiento API en modo: {settings.fastapi_env}")
+    print(f"🔗 Base de datos: {settings.database_url}")
+    print(f"🤖 Servidor Ollama: {settings.ollama_host}")
+
+    # Validación completa de la configuración ya se ejecuta al importar settings
+    # pero podemos agregar mensajes específicos aquí
     create_db_and_tables()
+    print("✅ Base de datos inicializada correctamente")
+
     yield
+
     # Shutdown (if needed)
+    print("🛑 Aplicación detenida")
+
 
 app = FastAPI(
     title="Asistente de Conocimiento API",
@@ -19,10 +33,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware configurado desde settings (obtenemos settings después de la configuración)
+settings = get_settings()
+allowed_origins_list = [origin.strip() for origin in settings.allowed_origins.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción, especificar dominios permitidos
+    allow_origins=allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

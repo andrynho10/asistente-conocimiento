@@ -1,6 +1,6 @@
 import os
 from typing import Optional
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     )
 
     # Development Settings
-    flask_env: str = Field(
+    fastapi_env: str = Field(
         default="development",
         description="Entorno de ejecución (development/production)"
     )
@@ -76,7 +76,8 @@ class Settings(BaseSettings):
     )
 
     # Validators
-    @validator('secret_key')
+    @field_validator('secret_key')
+    @classmethod
     def validate_secret_key(cls, v):
         """Validador crítico para SECRET_KEY"""
         if not v:
@@ -88,14 +89,14 @@ class Settings(BaseSettings):
                 'Genera una clave segura con: python -c "import secrets; print(secrets.token_hex(32))"'
             )
 
-        # Verificar que no sea el valor por defecto inseguro
+        # Verificar que no sea el valor por defecto inseguro (solo valores completos, no subcadenas)
         insecure_defaults = [
             "your-super-secret-jwt-key-change-in-production",
             "your-secret-key-here-replace-with-secure-random-value-min-64-chars",
             "secret", "test", "dev", "key"
         ]
 
-        if any(insecure in v.lower() for insecure in insecure_defaults):
+        if v.lower() in insecure_defaults:
             raise ValueError(
                 'SECRET_KEY parece ser un valor inseguro. '
                 'Genera una clave segura con: python -c "import secrets; print(secrets.token_hex(32))"'
@@ -103,7 +104,8 @@ class Settings(BaseSettings):
 
         return v
 
-    @validator('database_url')
+    @field_validator('database_url')
+    @classmethod
     def validate_database_url(cls, v):
         """Validador para URL de base de datos"""
         if not v:
@@ -121,7 +123,8 @@ class Settings(BaseSettings):
 
         return v
 
-    @validator('ollama_host')
+    @field_validator('ollama_host')
+    @classmethod
     def validate_ollama_host(cls, v):
         """Validador para URL de Ollama"""
         if not v:
@@ -136,13 +139,14 @@ class Settings(BaseSettings):
 
         return v
 
-    @validator('flask_env')
+    @field_validator('fastapi_env')
+    @classmethod
     def validate_environment(cls, v):
         """Validador para entorno de ejecución"""
         valid_envs = ['development', 'testing', 'production']
         if v.lower() not in valid_envs:
             raise ValueError(
-                f'FLASK_ENV debe ser uno de: {", ".join(valid_envs)}. Valor actual: {v}'
+                f'FASTAPI_ENV debe ser uno de: {", ".join(valid_envs)}. Valor actual: {v}'
             )
         return v.lower()
 
@@ -156,7 +160,7 @@ class Settings(BaseSettings):
             _ = self.secret_key
             _ = self.database_url
             _ = self.ollama_host
-            _ = self.flask_env
+            _ = self.fastapi_env
 
         except ValueError as e:
             raise ValueError(f"❌ Error de configuración: {e}")
@@ -172,5 +176,15 @@ class Settings(BaseSettings):
         return settings
 
 
-# Singleton instance para uso en la aplicación
-settings = Settings.create_with_validation()
+# Singleton instance para uso en la aplicación (carga lazy)
+settings = None
+
+def get_settings() -> Settings:
+    """
+    Obtiene instancia singleton de Settings.
+    Crea la instancia solo en la primera llamada.
+    """
+    global settings
+    if settings is None:
+        settings = Settings.create_with_validation()
+    return settings

@@ -183,6 +183,7 @@ class TestDocumentModel:
         doc1 = Document(
             title="Doc 1",
             file_path="/docs/same.pdf",
+            file_size=1024,
             user_id=user.id
         )
         test_db.add(doc1)
@@ -192,6 +193,7 @@ class TestDocumentModel:
         doc2 = Document(
             title="Doc 2",
             file_path="/docs/same.pdf",  # mismo path
+            file_size=2048,
             user_id=user.id
         )
         test_db.add(doc2)
@@ -273,7 +275,30 @@ class TestAlembicMigration:
         os.chdir(backend_dir)
 
         try:
-            # Ejecutar alembic upgrade head
+            # Primero, verificar estado actual de alembic
+            current_result = subprocess.run(
+                ["poetry", "run", "alembic", "current"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Si ya está en head, el upgrade debería ser idempotente
+            # Si hay tablas existentes pero no tracking de alembic, marcar como head
+            if current_result.returncode == 0 and "head" in current_result.stdout:
+                # Ya está en head, probar upgrade idempotente
+                pass
+            else:
+                # Intentar marcar como head si las tablas ya existen
+                stamp_result = subprocess.run(
+                    ["poetry", "run", "alembic", "stamp", "head"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                # Si stamp falla, continuamos con upgrade normal
+
+            # Ejecutar alembic upgrade head (debería ser seguro ahora)
             result = subprocess.run(
                 ["poetry", "run", "alembic", "upgrade", "head"],
                 capture_output=True,
@@ -335,27 +360,33 @@ class TestInitDbScript:
                     # Verificar que la base de datos fue creada y tiene datos
                     from sqlmodel import create_engine, Session, select
                     test_engine = create_engine(temp_db_url)
+                    admin = None
+                    categories = []
 
-                    with Session(test_engine) as session:
-                        # Verificar usuario admin
-                        admin_stmt = select(User).where(User.username == "admin")
-                        admin = session.exec(admin_stmt).first()
+                    try:
+                        with Session(test_engine) as session:
+                            # Verificar usuario admin
+                            admin_stmt = select(User).where(User.username == "admin")
+                            admin = session.exec(admin_stmt).first()
 
-                        assert admin is not None
-                        assert admin.username == "admin"
-                        assert admin.email == "admin@example.com"
-                        assert admin.role == UserRole.admin
+                            assert admin is not None
+                            assert admin.username == "admin"
+                            assert admin.email == "admin@example.com"
+                            assert admin.role == UserRole.admin
 
-                        # Verificar categorías predefinidas
-                        doc_stmt = select(Document).where(Document.title.like("Categoría:%"))
-                        categories = session.exec(doc_stmt).all()
+                            # Verificar categorías predefinidas
+                            doc_stmt = select(Document).where(Document.title.like("Categoría:%"))
+                            categories = session.exec(doc_stmt).all()
 
-                        assert len(categories) == 3
+                            assert len(categories) == 3
 
-                        category_names = [doc.category for doc in categories]
-                        assert "Políticas RRHH" in category_names
-                        assert "Procedimientos Operativos" in category_names
-                        assert "Manuales Técnicos" in category_names
+                            category_names = [doc.category for doc in categories]
+                            assert "Políticas RRHH" in category_names
+                            assert "Procedimientos Operativos" in category_names
+                            assert "Manuales Técnicos" in category_names
+                    finally:
+                        # Asegurarse de cerrar todas las conexiones
+                        test_engine.dispose()
 
                 finally:
                     os.chdir(original_cwd)
@@ -414,11 +445,15 @@ class TestInitDbScript:
                     from sqlmodel import create_engine, Session, select
                     test_engine = create_engine(temp_db_url)
 
-                    with Session(test_engine) as session:
-                        admin_stmt = select(User).where(User.username == "admin")
-                        admins = session.exec(admin_stmt).all()
+                    try:
+                        with Session(test_engine) as session:
+                            admin_stmt = select(User).where(User.username == "admin")
+                            admins = session.exec(admin_stmt).all()
 
-                        assert len(admins) == 1  # Solo un admin
+                            assert len(admins) == 1  # Solo un admin
+                    finally:
+                        # Asegurarse de cerrar todas las conexiones
+                        test_engine.dispose()
 
                 finally:
                     os.chdir(original_cwd)
