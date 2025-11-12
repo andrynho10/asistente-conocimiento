@@ -98,6 +98,11 @@ backend/data/
 docs/bmm-workflow-status.yaml
 docs/bmm-readiness-assessment-*.md
 
+# Process artifacts (validation reports, WIP design files)
+docs/validation-report-*.md
+docs/ux-*.html
+docs/ux-design-specification.md
+
 # OS generated files
 .DS_Store
 .DS_Store?
