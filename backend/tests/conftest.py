@@ -272,3 +272,131 @@ def isolated_env_for_config_tests():
             os.environ[var] = value
         elif var in os.environ:
             del os.environ[var]
+
+
+# ============================================================================
+# CENTRALIZED MOCKING FIXTURES (Story 3.3-ALT: Refactoring Tests Mocking)
+# ============================================================================
+# Estas fixtures implementan el patrón correcto para FastAPI testing
+# usando dependency_overrides en lugar de @patch decorators
+# ============================================================================
+
+
+@pytest.fixture
+def client_with_mocked_auth(test_client):
+    """
+    Fixture que proporciona un TestClient con autenticación mockeada.
+
+    Usa el patrón correcto de FastAPI: dependency_overrides.
+    Reemplaza get_current_user con un mock que retorna un usuario admin.
+
+    Cleanup automático: limpia dependency_overrides después del test.
+
+    MAPEADO A: AC1 - Crear Fixtures Centralizadas de Mocking
+    """
+    from datetime import datetime, timezone
+    from app.middleware.auth import get_current_user
+
+    def mock_get_current_user():
+        """Mock que simula un usuario admin autenticado"""
+        return User(
+            id=1,
+            username="admin_mock",
+            email="admin_mock@test.com",
+            full_name="Admin Mock User",
+            hashed_password="",  # No usado en mock
+            role=UserRole.admin,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+
+    # Aplicar override de dependencia ANTES de retornar el cliente
+    test_client.app.dependency_overrides[get_current_user] = mock_get_current_user
+
+    yield test_client
+
+    # Cleanup: siempre limpiar los overrides
+    test_client.app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client_with_mocked_storage(test_client, mocker):
+    """
+    Fixture que proporciona un TestClient con storage (filesystem) mockeado.
+
+    Mockea:
+    - os.path.exists: siempre retorna True
+    - os.remove: no-op (no hace nada)
+
+    Útil para tests que simulan operaciones de descarga/elimina de archivos
+    sin necesitar archivos reales en el filesystem.
+
+    MAPEADO A: AC1 - Crear Fixtures Centralizadas de Mocking
+    """
+    # Mockear filesystem operations
+    mocker.patch('os.path.exists', return_value=True)
+    mocker.patch('os.remove')
+
+    yield test_client
+
+
+@pytest.fixture
+def client_with_mocked_document_service(test_client, mocker):
+    """
+    Fixture que proporciona un TestClient con DocumentService mockeado.
+
+    Mockea:
+    - DocumentService.download_document: retorna None (simula documento no encontrado)
+    - DocumentService.preview_document: retorna dict vacío
+
+    Útil para tests que quieren controlar el comportamiento del servicio
+    sin depender de la BD real.
+
+    MAPEADO A: AC1 - Crear Fixtures Centralizadas de Mocking
+    """
+    from app.services.document_service import DocumentService
+
+    # Mockear métodos del servicio
+    mocker.patch.object(
+        DocumentService,
+        'download_document',
+        return_value=None
+    )
+    mocker.patch.object(
+        DocumentService,
+        'preview_document',
+        return_value={}
+    )
+
+    yield test_client
+
+
+@pytest.fixture
+def authenticated_client(client_with_mocked_auth):
+    """Alias para client_with_mocked_auth (para compatibilidad con test_download_integration.py)"""
+    return client_with_mocked_auth
+
+
+@pytest.fixture
+def normal_client(test_client):
+    """Client con usuario normal autenticado (no admin)"""
+    from datetime import datetime, timezone
+    from app.middleware.auth import get_current_user
+
+    def mock_get_current_user_normal():
+        return User(
+            id=2,
+            username="user_normal",
+            email="user@test.com",
+            full_name="Normal User",
+            hashed_password="",
+            role=UserRole.user,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+
+    test_client.app.dependency_overrides[get_current_user] = mock_get_current_user_normal
+    yield test_client
+    test_client.app.dependency_overrides.clear()
