@@ -18,7 +18,7 @@ os.environ["SECRET_KEY"] = "test-secret-key-must-be-at-least-32-characters-long-
 os.environ["OLLAMA_HOST"] = "http://localhost:11434"
 os.environ["DEBUG"] = "true"
 
-from sqlmodel import Session, create_engine, SQLModel
+from sqlmodel import Session, create_engine, SQLModel, text
 from fastapi.testclient import TestClient
 
 # CRÍTICO: Importar TODOS los modelos ANTES de create_engine
@@ -55,6 +55,8 @@ def test_engine():
 
     CRÍTICO: Reemplaza el engine global en database.py para que FastAPI
     use el mismo engine que el resto de los tests.
+
+    Inicializa también tabla FTS5 y triggers para búsqueda full-text.
     """
     from sqlalchemy.pool import StaticPool
 
@@ -74,11 +76,82 @@ def test_engine():
     # DESPUÉS de parchear, crear las tablas
     SQLModel.metadata.create_all(test_db_engine)
 
+    # STORY 3.3-ALT-B: Inicializar tabla FTS5 y triggers
+    _setup_fts5_table(test_db_engine)
+
     yield test_db_engine
 
     # Cleanup: drop all tables y restaurar engine original
     SQLModel.metadata.drop_all(test_db_engine)
     database.engine = old_engine
+
+
+def _setup_fts5_table(engine):
+    """
+    Crea tabla virtual FTS5 y triggers de sincronización en la base de datos de test.
+
+    Esta función se llama automáticamente por test_engine fixture para cada test,
+    garantizando que FTS5 esté disponible para pruebas de búsqueda y eliminación.
+
+    Configuración:
+    - Tabla virtual: documents_fts con columnas (document_id, title, content_text, category)
+    - Tokenizer: unicode61 remove_diacritics 2 para soporte español completo
+    - Triggers: INSERT, UPDATE, DELETE para mantener FTS5 sincronizado con documents table
+    - Restricción: INSERT solo cuando new.content_text IS NOT NULL (evita indexar documentos sin contenido)
+
+    Referencias:
+    - Producción: backend/alembic/versions/f24f93ff1ff8_add_fts5_full_text_search_index.py
+    - Tests: Fixture centralizada que todos los tests pueden usar sin duplicación
+
+    Nota: External content table (content='documents', content_rowid='id') NO se usa en tests
+    porque SQLite in-memory tiene limitaciones. Mantenemos sincronización manual via triggers.
+    """
+    with Session(engine) as session:
+        # Crear tabla virtual FTS5 para búsqueda full-text de documentos
+        # document_id UNINDEXED: No indexar ID, solo búsqueda por contenido
+        # tokenize: unicode61 remove_diacritics 2 para español (ñ, á, é, etc.)
+        session.exec(text("""
+            CREATE VIRTUAL TABLE documents_fts USING fts5(
+                document_id UNINDEXED,
+                title,
+                content_text,
+                category,
+                tokenize='unicode61 remove_diacritics 2'
+            )
+        """))
+
+        # Trigger INSERT: Agregar documento nuevo al índice FTS5 (solo si tiene content_text)
+        # WHEN new.content_text IS NOT NULL: evita indexar documentos sin contenido extraído
+        session.exec(text("""
+            CREATE TRIGGER documents_ai AFTER INSERT ON documents
+            WHEN new.content_text IS NOT NULL
+            BEGIN
+                INSERT INTO documents_fts(document_id, title, content_text, category)
+                VALUES (new.id, new.title, new.content_text, new.category);
+            END
+        """))
+
+        # Trigger UPDATE: Actualizar documento en índice FTS5
+        # Se ejecuta cuando título, contenido o categoría cambian
+        session.exec(text("""
+            CREATE TRIGGER documents_au AFTER UPDATE ON documents BEGIN
+                UPDATE documents_fts
+                SET title = new.title,
+                    content_text = new.content_text,
+                    category = new.category
+                WHERE document_id = old.id;
+            END
+        """))
+
+        # Trigger DELETE: Eliminar documento del índice FTS5
+        # Garantiza que documentos eliminados no aparezcan en búsquedas
+        session.exec(text("""
+            CREATE TRIGGER documents_ad AFTER DELETE ON documents BEGIN
+                DELETE FROM documents_fts WHERE document_id = old.id;
+            END
+        """))
+
+        session.commit()
 
 
 @pytest.fixture

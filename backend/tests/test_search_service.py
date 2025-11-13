@@ -24,51 +24,15 @@ from app.core.security import get_password_hash
 @pytest.fixture
 def setup_fts5_table(test_db_session):
     """
-    Crea tabla FTS5 y triggers en base de datos de test.
+    Fixture que permite que los tests usen test_db_session directamente.
 
-    La migración normal crea esto, pero en tests in-memory
-    necesitamos recrear la estructura FTS5.
+    STORY 3.3-ALT-B: FTS5 tabla y triggers ahora se inicializan automáticamente
+    en conftest.py test_engine fixture, así que esta fixture simplemente retorna
+    la sesión sin duplicar la creación de tablas.
+
+    Keeped para compatibilidad con tests existentes que la usan como dependencia.
     """
-    # Crear tabla virtual FTS5 (sin external content para tests)
-    test_db_session.exec(text("""
-        CREATE VIRTUAL TABLE documents_fts USING fts5(
-            document_id UNINDEXED,
-            title,
-            content_text,
-            category,
-            tokenize='unicode61 remove_diacritics 2'
-        )
-    """))
-
-    # Trigger INSERT (solo para documentos con content_text)
-    test_db_session.exec(text("""
-        CREATE TRIGGER documents_ai AFTER INSERT ON documents
-        WHEN new.content_text IS NOT NULL
-        BEGIN
-            INSERT INTO documents_fts(document_id, title, content_text, category)
-            VALUES (new.id, new.title, new.content_text, new.category);
-        END
-    """))
-
-    # Trigger UPDATE
-    test_db_session.exec(text("""
-        CREATE TRIGGER documents_au AFTER UPDATE ON documents BEGIN
-            UPDATE documents_fts
-            SET title = new.title,
-                content_text = new.content_text,
-                category = new.category
-            WHERE document_id = old.id;
-        END
-    """))
-
-    # Trigger DELETE
-    test_db_session.exec(text("""
-        CREATE TRIGGER documents_ad AFTER DELETE ON documents BEGIN
-            DELETE FROM documents_fts WHERE document_id = old.id;
-        END
-    """))
-
-    test_db_session.commit()
+    # FTS5 tabla y triggers ya están creados por test_engine en conftest.py
     yield test_db_session
 
 

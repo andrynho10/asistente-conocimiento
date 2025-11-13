@@ -221,11 +221,12 @@ class TestDocumentDeletion:
         search_results_before = search_response.json()
 
         # Verificar que el documento aparece en búsqueda
+        # SearchResponse retorna "results" no "documents"
         found_before = any(
             result.get("document_id") == document_id
-            for result in search_results_before.get("documents", [])
+            for result in search_results_before.get("results", [])
         )
-        assert found_before, "El documento debería aparecer en búsqueda antes de eliminación"
+        assert found_before, f"El documento {document_id} debería aparecer en búsqueda antes de eliminación. Respuesta: {search_results_before}"
 
         # Realizar DELETE request
         response = test_client.delete(
@@ -245,7 +246,7 @@ class TestDocumentDeletion:
 
         found_after = any(
             result.get("document_id") == document_id
-            for result in search_results_after.get("documents", [])
+            for result in search_results_after.get("results", [])
         )
         assert not found_after, "El documento eliminado no debería aparecer en búsqueda"
 
