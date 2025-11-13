@@ -19,7 +19,7 @@ from app.models.document import Document
 from app.models.audit import AuditLog
 from app.services.document_service import DocumentService
 
-client = TestClient(app)
+client = None  # Será inyectado por setup_test_client_globals en conftest.py
 
 
 # Override dependencies para testing

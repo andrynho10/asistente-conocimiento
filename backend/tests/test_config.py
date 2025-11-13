@@ -29,7 +29,7 @@ def reset_settings_singleton():
 class TestConfiguracionBasica:
     """Tests para configuración básica y carga de variables"""
 
-    def test_configuracion_valida_carga_correctamente(self):
+    def test_configuracion_valida_carga_correctamente(self, isolated_env_for_config_tests):
         """AC #1, AC #2: Configuración válida carga correctamente"""
         # Crear archivo .env temporal con valores válidos
         with tempfile.NamedTemporaryFile(mode='w', suffix='.env', delete=False, encoding='utf-8') as f:
@@ -68,7 +68,7 @@ ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
         finally:
             os.unlink(env_path)
 
-    def test_valores_por_defecto_se_aplican_correctamente(self):
+    def test_valores_por_defecto_se_aplican_correctamente(self, isolated_env_for_config_tests):
         """AC #2: Variables por defecto se aplican correctamente"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.env', delete=False, encoding='utf-8') as f:
             f.write("""
@@ -115,7 +115,7 @@ class TestValidadoresSecretKey:
         finally:
             os.unlink(env_path)
 
-    def test_secret_key_demasiado_corto_lanza_value_error(self):
+    def test_secret_key_demasiado_corto_lanza_value_error(self, isolated_env_for_config_tests):
         """AC #3: SECRET_KEY demasiado corto lanza ValueError"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.env', delete=False, encoding='utf-8') as f:
             f.write("SECRET_KEY=short")
@@ -131,7 +131,7 @@ class TestValidadoresSecretKey:
         finally:
             os.unlink(env_path)
 
-    def test_secret_key_valor_inseguro_lanza_value_error(self):
+    def test_secret_key_valor_inseguro_lanza_value_error(self, isolated_env_for_config_tests):
         """AC #3: SECRET_KEY con valor inseguro lanza ValueError"""
         insecure_values = [
             "your-super-secret-jwt-key-change-in-production",
@@ -175,7 +175,7 @@ class TestValidadoresSecretKey:
 class TestValidadoresGenerales:
     """Tests para otros validadores de configuración"""
 
-    def test_database_url_invalida_lanza_error(self):
+    def test_database_url_invalida_lanza_error(self, isolated_env_for_config_tests):
         """Validador: DATABASE_URL inválida lanza error"""
         invalid_urls = [
             "invalid://not-supported",
@@ -200,7 +200,7 @@ DATABASE_URL={invalid_url}
             finally:
                 os.unlink(env_path)
 
-    def test_ollama_host_invalido_lanza_error(self):
+    def test_ollama_host_invalido_lanza_error(self, isolated_env_for_config_tests):
         """Validador: OLLAMA_HOST inválido lanza error"""
         invalid_hosts = [
             "invalid-host",
@@ -225,7 +225,7 @@ OLLAMA_HOST={invalid_host}
             finally:
                 os.unlink(env_path)
 
-    def test_fastapi_env_invalido_lanza_error(self):
+    def test_fastapi_env_invalido_lanza_error(self, isolated_env_for_config_tests):
         """Validador: FASTAPI_ENV inválido lanza error"""
         invalid_envs = [
             "invalid",

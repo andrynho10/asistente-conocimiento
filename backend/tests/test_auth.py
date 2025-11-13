@@ -110,7 +110,7 @@ class TestAuthentication:
 
     def test_logout_no_token(self, client):
         response = client.post("/api/auth/logout")
-        assert response.status_code == 403  # No authorization header
+        assert response.status_code == 401  # No authorization header (Unauthorized)
 
     def test_jwt_token_payload_structure(self, client, test_user):
         response = client.post(

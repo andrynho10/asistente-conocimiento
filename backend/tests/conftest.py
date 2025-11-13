@@ -14,6 +14,9 @@ from unittest.mock import patch
 # CRÍTICO: Establecer entorno de testing ANTES de importar la app
 os.environ["FASTAPI_ENV"] = "testing"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["SECRET_KEY"] = "test-secret-key-must-be-at-least-32-characters-long-for-jwt-signing"
+os.environ["OLLAMA_HOST"] = "http://localhost:11434"
+os.environ["DEBUG"] = "true"
 
 from sqlmodel import Session, create_engine, SQLModel
 from fastapi.testclient import TestClient
@@ -53,10 +56,13 @@ def test_engine():
     CRÍTICO: Reemplaza el engine global en database.py para que FastAPI
     use el mismo engine que el resto de los tests.
     """
-    # Crear engine de prueba
+    from sqlalchemy.pool import StaticPool
+
+    # Crear engine de prueba con StaticPool para evitar threads
     test_db_engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
         echo=False
     )
 
@@ -120,6 +126,33 @@ def test_client(test_engine, test_db_session):
 
     # Cleanup
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True, scope="function")
+def setup_test_client_globals(test_client, request):
+    """
+    Fixture que inyecta el test_client en módulos de tests que lo usan como variable global.
+    Permite que tests escritos sin fixture como parámetro sigan funcionando.
+    """
+    # Solo aplicar a módulos específicos que tenemos que arreglar
+    if "test_document_listing" in request.node.fspath.strpath or \
+       "test_document_download" in request.node.fspath.strpath or \
+       "test_download_integration" in request.node.fspath.strpath:
+        # Inyectar test_client en el módulo de tests
+        import sys
+        module = sys.modules[request.node.module.__name__]
+        old_client = getattr(module, 'client', None)
+        module.client = test_client
+
+        yield
+
+        # Restaurar estado original
+        if old_client is not None:
+            module.client = old_client
+        elif hasattr(module, 'client'):
+            delattr(module, 'client')
+    else:
+        yield
 
 
 @pytest.fixture
@@ -211,3 +244,31 @@ def sample_txt_file():
     # Cleanup
     if os.path.exists(tmp_path):
         os.unlink(tmp_path)
+
+
+@pytest.fixture
+def isolated_env_for_config_tests():
+    """
+    Fixture que aísla variables de entorno para tests de configuración.
+    Restaura os.environ después del test para no afectar otros tests.
+    """
+    # Guardar estado actual de variables de entorno críticas
+    original_env = {}
+    critical_vars = ["DATABASE_URL", "SECRET_KEY", "OLLAMA_HOST", "FASTAPI_ENV", "DEBUG"]
+
+    for var in critical_vars:
+        original_env[var] = os.environ.get(var)
+
+    # Limpiar estas variables para tests de config
+    for var in critical_vars:
+        if var in os.environ:
+            del os.environ[var]
+
+    yield
+
+    # Restaurar estado original
+    for var, value in original_env.items():
+        if value is not None:
+            os.environ[var] = value
+        elif var in os.environ:
+            del os.environ[var]

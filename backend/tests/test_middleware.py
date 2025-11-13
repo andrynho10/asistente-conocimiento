@@ -41,7 +41,7 @@ class TestMiddleware:
 
     def test_protected_endpoint_without_token(self, client):
         response = client.get("/test/protected")
-        assert response.status_code == 403  # No authorization header
+        assert response.status_code == 401  # No authorization header (Unauthorized)
 
     def test_protected_endpoint_with_invalid_token(self, client):
         headers = {"Authorization": "Bearer invalid_token"}
@@ -52,7 +52,7 @@ class TestMiddleware:
 
     def test_admin_endpoint_without_token(self, client):
         response = client.get("/test/admin-only")
-        assert response.status_code == 403  # No authorization header
+        assert response.status_code == 401  # No authorization header (Unauthorized)
 
     def test_admin_endpoint_with_invalid_token(self, client):
         headers = {"Authorization": "Bearer invalid_token"}

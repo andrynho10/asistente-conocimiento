@@ -16,8 +16,7 @@ from app.models.document import Document, DocumentCategory, DocumentResponse, Do
 from app.services.document_service import DocumentService
 from app.core.security import create_access_token
 
-
-client = TestClient(app)
+client = None  # Será inyectado por setup_test_client_globals en conftest.py
 
 
 @pytest.fixture
