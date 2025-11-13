@@ -13,14 +13,34 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.services.llm_service import get_llm_service, OllamaLLMService
+from app.services.retrieval_service import RetrievalService
+from app.database import get_session
 from app.schemas.ia import (
     HealthResponse,
     GenerationRequest,
     GenerationResponse,
     ModelListResponse,
     ModelInfo,
+    RetrieveRequest,
+    RetrieveResponse,
     ErrorResponse
 )
+
+# Import admin dependency for endpoint protection
+try:
+    from app.middleware.auth import get_current_user, require_role
+
+    def get_current_admin_user(current_user = Depends(get_current_user)):
+        """Require admin role for endpoint access."""
+        return require_role("admin")(current_user)
+except ImportError:
+    # Fallback if auth module not available
+    async def get_current_admin_user():
+        """Placeholder admin dependency - should be replaced with actual auth."""
+        raise HTTPException(
+            status_code=501,
+            detail="Authentication module not available"
+        )
 
 logger = logging.getLogger(__name__)
 
@@ -379,4 +399,125 @@ async def list_models(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve models: {str(e)}"
+        )
+
+
+@router.post(
+    "/retrieve",
+    response_model=RetrieveResponse,
+    summary="Retrieve Relevant Documents",
+    description="Retrieve relevant documents for AI queries using advanced search and ranking",
+    responses={
+        200: {
+            "description": "Documents retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "query": "políticas de vacaciones",
+                        "optimized_query": "política OR regla OR directriz OR vacaciones OR descanso OR licencia",
+                        "total_documents": 3,
+                        "documents": [
+                            {
+                                "document_id": 1,
+                                "title": "Política de Vacaciones Anuales",
+                                "category": "RRHH",
+                                "relevance_score": 0.95,
+                                "snippet": "Los empleados tienen derecho a 15 días hábiles de <mark>vacaciones</mark> anuales...",
+                                "upload_date": "2025-11-13T10:30:00Z"
+                            }
+                        ],
+                        "processing_time_ms": 45.2
+                    }
+                }
+            }
+        },
+        400: {"description": "Invalid request parameters"},
+        403: {"description": "Admin access required"},
+        500: {"description": "Retrieval service error"},
+        429: {"description": "Rate limit exceeded"}
+    }
+)
+async def retrieve_documents(
+    request: Request,
+    retrieve_request: RetrieveRequest,
+    db=Depends(get_session),
+    current_user=Depends(get_current_admin_user)  # Admin only endpoint
+):
+    """
+    Retrieve relevant documents for AI context generation.
+
+    This endpoint uses advanced retrieval techniques including:
+    - Query optimization with synonym expansion
+    - Text normalization and stopword filtering
+    - BM25 ranking with relevance scores
+    - Smart filtering for low-relevance results
+
+    **Admin Only**: This endpoint is restricted to admin users for debugging
+    and testing purposes. Production RAG usage should be integrated directly
+    in the AI generation pipeline.
+    """
+    # Check rate limiting
+    if not check_rate_limit(request, limit=15, window=60):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many retrieval requests - rate limit exceeded"
+        )
+
+    start_time = time.time()
+
+    try:
+        logger.info(f"Retrieving documents for query: {retrieve_request.query}")
+
+        # Perform retrieval
+        documents = await RetrievalService.retrieve_relevant_documents(
+            query=retrieve_request.query,
+            top_k=retrieve_request.top_k,
+            db=db
+        )
+
+        processing_time_ms = (time.time() - start_time) * 1000
+
+        # Convert documents to dict format for response
+        documents_dict = []
+        for doc in documents:
+            documents_dict.append({
+                "document_id": doc.document_id,
+                "title": doc.title,
+                "category": doc.category,
+                "relevance_score": doc.relevance_score,
+                "snippet": doc.snippet,
+                "upload_date": doc.upload_date.isoformat() if doc.upload_date else None
+            })
+
+        # Get optimized query for debugging
+        optimized_query = RetrievalService._optimize_query(retrieve_request.query)
+
+        response = RetrieveResponse(
+            query=retrieve_request.query,
+            optimized_query=optimized_query,
+            total_documents=len(documents),
+            documents=documents_dict,
+            processing_time_ms=processing_time_ms
+        )
+
+        logger.info(
+            f"Document retrieval completed - query: {retrieve_request.query}, "
+            f"documents: {len(documents)}, processing_time: {processing_time_ms:.2f}ms"
+        )
+
+        return response
+
+    except ValueError as e:
+        logger.warning(f"Invalid retrieval request: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        processing_time_ms = (time.time() - start_time) * 1000
+
+        error_msg = f"Document retrieval failed: {str(e)}"
+        logger.error(error_msg)
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document retrieval failed: {str(e)}"
         )

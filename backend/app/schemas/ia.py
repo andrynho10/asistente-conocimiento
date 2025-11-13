@@ -224,6 +224,95 @@ class ModelListResponse(BaseModel):
     )
 
 
+class RetrieveRequest(BaseModel):
+    """
+    Request model for document retrieval endpoint.
+
+    Defines parameters for retrieving relevant documents to provide
+    context to LLM for accurate responses.
+    """
+    query: str = Field(
+        ...,
+        description="Query for document retrieval",
+        min_length=2,
+        max_length=200,
+        examples=["políticas de vacaciones", "procedimientos de contratación", "normas de seguridad"]
+    )
+    top_k: Optional[int] = Field(
+        3,
+        description="Number of documents to retrieve",
+        ge=1,
+        le=10,
+        examples=[3, 5, 10]
+    )
+
+    @field_validator('query')
+    @classmethod
+    def validate_query(cls, v):
+        """Validate query content."""
+        if not v or not v.strip():
+            raise ValueError('Query cannot be empty or whitespace only')
+        return v.strip()
+
+
+class RetrieveResponse(BaseModel):
+    """
+    Response model for document retrieval endpoint.
+
+    Contains retrieved documents with relevance scores and metadata
+    for providing context to LLM.
+    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "query": "políticas de vacaciones",
+                    "total_documents": 3,
+                    "documents": [
+                        {
+                            "document_id": 1,
+                            "title": "Política de Vacaciones Anuales",
+                            "category": "RRHH",
+                            "relevance_score": 0.95,
+                            "snippet": "Los empleados tienen derecho a 15 días hábiles de <mark>vacaciones</mark> anuales...",
+                            "upload_date": "2025-11-13T10:30:00Z"
+                        }
+                    ],
+                    "optimized_query": "política OR regla OR directriz OR vacaciones OR descanso OR licencia",
+                    "processing_time_ms": 45.2
+                }
+            ]
+        }
+    )
+
+    query: str = Field(
+        ...,
+        description="Original query provided",
+        examples=["políticas de vacaciones"]
+    )
+    optimized_query: Optional[str] = Field(
+        None,
+        description="Optimized query used for search with synonym expansion",
+        examples=["política OR regla OR directriz OR vacaciones OR descanso OR licencia"]
+    )
+    total_documents: int = Field(
+        ...,
+        description="Total number of documents retrieved",
+        ge=0,
+        examples=[0, 3, 5]
+    )
+    documents: List[Dict[str, Any]] = Field(
+        ...,
+        description="List of retrieved documents with metadata"
+    )
+    processing_time_ms: Optional[float] = Field(
+        None,
+        description="Time taken to process retrieval in milliseconds",
+        ge=0,
+        examples=[45.2, 120.5]
+    )
+
+
 class ErrorResponse(BaseModel):
     """
     Standard error response model for IA endpoints.
