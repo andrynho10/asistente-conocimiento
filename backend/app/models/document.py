@@ -130,3 +130,44 @@ class SearchResponse(SQLModel):
     query: str
     total_results: int
     results: list[SearchResult]
+
+
+# Schemas para listado y consulta de documentos (Story 2.5)
+class DocumentResponse(SQLModel):
+    """Schema para respuesta de documento con uploaded_by como username"""
+    id: int
+    title: str
+    description: str | None
+    category: str
+    file_type: str
+    file_size_bytes: int
+    upload_date: datetime
+    uploaded_by: str  # Username instead of user_id
+    is_indexed: bool
+    indexed_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class DocumentListRequest(SQLModel):
+    """Schema para query params de listado de documentos"""
+    category: str | None = Field(default=None, description="Filtrar por categoría")
+    limit: int = Field(default=20, ge=1, le=100, description="Límite de resultados")
+    offset: int = Field(default=0, ge=0, description="Offset para paginación")
+    sort_by: str = Field(
+        default="upload_date",
+        description="Campo de ordenamiento (upload_date, title, file_size_bytes)"
+    )
+    order: str = Field(
+        default="desc",
+        description="Dirección de ordenamiento (asc, desc)"
+    )
+
+
+class CategoryResponse(SQLModel):
+    """Schema para respuesta de categoría con contador de documentos"""
+    name: str
+    description: str | None
+    document_count: int
+
+    model_config = {"from_attributes": True}

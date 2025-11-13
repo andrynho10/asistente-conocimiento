@@ -7,7 +7,7 @@ from datetime import datetime
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_role
 from app.models.user import User, UserRole
-from app.models.document import Document, DocumentCategory, DocumentStatusResponse, SearchResponse
+from app.models.document import Document, DocumentCategory, DocumentStatusResponse, SearchResponse, DocumentResponse, DocumentListRequest, CategoryResponse
 from app.models.audit import AuditLog, AuditLogCreate
 from app.services.document_service import DocumentService
 from app.services.search_service import SearchService
@@ -325,5 +325,176 @@ async def search_documents(
             detail={
                 "code": "SEARCH_ERROR",
                 "message": "Error interno en búsqueda"
+            }
+        )
+
+
+@router.get("/documents", response_model=list[DocumentResponse])
+async def list_documents(
+    category: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+    sort_by: str = "upload_date",
+    order: str = "desc",
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint para listar documentos con filtros, paginación y ordenamiento.
+
+    AC1: Listado de Documentos con Paginación (GET /api/knowledge/documents)
+    - Por defecto: limit=20, offset=0
+    - Retorna response 200 con lista de DocumentResponse
+
+    AC2: Filtros de Búsqueda
+    - category: filtrar por categoría específica
+    - limit, offset: paginación
+    - sort_by: upload_date, title, file_size_bytes
+    - order: asc, desc
+
+    AC5: Ordenamiento soporta upload_date, title, file_size_bytes
+
+    Args:
+        category: Filtro opcional por categoría
+        limit: Límite de resultados (default: 20, max: 100)
+        offset: Offset para paginación (default: 0)
+        sort_by: Campo de ordenamiento (upload_date, title, file_size_bytes)
+        order: Dirección de ordenamiento (asc, desc)
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (admin o user)
+
+    Returns:
+        list[DocumentResponse]: Lista de documentos con uploaded_by como username
+
+    Raises:
+        HTTPException 400: Si los parámetros de ordenamiento son inválidos
+        HTTPException 500: Error interno del servidor
+    """
+    try:
+        # AC6: Usuario 'user' puede listar documentos (solo lectura)
+        document_list_request = DocumentListRequest(
+            category=category,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            order=order
+        )
+
+        documents = await DocumentService.get_documents(
+            db=db,
+            category=document_list_request.category,
+            limit=document_list_request.limit,
+            offset=document_list_request.offset,
+            sort_by=document_list_request.sort_by,
+            order=document_list_request.order
+        )
+
+        return documents
+
+    except ValueError as e:
+        # Error de validación de parámetros
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_PARAMETERS",
+                "message": str(e)
+            }
+        )
+    except Exception as e:
+        # Error genérico del servidor
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "SERVER_ERROR",
+                "message": "Error interno del servidor"
+            }
+        )
+
+
+@router.get("/documents/{document_id}", response_model=DocumentResponse)
+async def get_document(
+    document_id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint para obtener detalles de un documento específico.
+
+    AC3: Detalle de Documento (GET /api/knowledge/documents/{document_id})
+    - Retorna detalles completos del documento
+    - Retorna 404 si no existe
+
+    Args:
+        document_id: ID del documento a consultar
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (admin o user)
+
+    Returns:
+        DocumentResponse: Detalles completos del documento
+
+    Raises:
+        HTTPException 404: Si el documento no existe
+        HTTPException 500: Error interno del servidor
+    """
+    try:
+        document = await DocumentService.get_document_by_id(document_id, db)
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "DOCUMENT_NOT_FOUND",
+                    "message": f"Documento con ID {document_id} no encontrado"
+                }
+            )
+
+        return document
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (como 404)
+        raise
+    except Exception as e:
+        # Error genérico del servidor
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "SERVER_ERROR",
+                "message": "Error interno del servidor"
+            }
+        )
+
+
+@router.get("/categories", response_model=list[CategoryResponse])
+async def list_categories(
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint para listar categorías con contador de documentos.
+
+    AC4: Listado de Categorías (GET /api/knowledge/categories)
+    - Retorna lista de categorías con contador de documentos
+
+    Args:
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (admin o user)
+
+    Returns:
+        list[CategoryResponse]: Lista de categorías con document_count
+
+    Raises:
+        HTTPException 500: Error interno del servidor
+    """
+    try:
+        categories = await DocumentService.get_categories(db)
+        return categories
+
+    except Exception as e:
+        # Error genérico del servidor
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "SERVER_ERROR",
+                "message": "Error interno del servidor"
             }
         )
