@@ -510,3 +510,155 @@ class DocumentService:
             }))
 
             raise  # Re-raise para que el controller maneje el 500
+
+    @staticmethod
+    async def download_document(document_id: int, db: Session) -> Optional[tuple]:
+        """
+        Obtiene información de descarga para un documento.
+
+        Args:
+            document_id: ID del documento a descargar
+            db: Sesión de base de datos SQLModel
+
+        Returns:
+            Optional[tuple]: (file_path, file_type, filename, file_size) o None si no existe
+
+        Example:
+            >>> async with get_session() as db:
+            >>>     result = await DocumentService.download_document(123, db)
+            >>>     if result:
+            >>>         file_path, file_type, filename, file_size = result
+        """
+        start_time = datetime.now()
+
+        try:
+            # Obtener documento de la base de datos
+            statement = select(Document).where(Document.id == document_id)
+            document = db.exec(statement).first()
+
+            if not document:
+                logger.info(json.dumps({
+                    "event": "download_not_found",
+                    "document_id": document_id,
+                    "query_time_ms": round((datetime.now() - start_time).total_seconds() * 1000, 2),
+                    "success": True,
+                    "timestamp": datetime.now().isoformat()
+                }))
+                return None
+
+            # Validar que el archivo físico exista
+            import os
+            if not os.path.exists(document.file_path):
+                # Archivo huérfano: eliminar registro de DB
+                logger.warning(json.dumps({
+                    "event": "orphaned_file_cleanup",
+                    "document_id": document_id,
+                    "file_path": document.file_path,
+                    "title": document.title,
+                    "query_time_ms": round((datetime.now() - start_time).total_seconds() * 1000, 2),
+                    "success": True,
+                    "timestamp": datetime.now().isoformat()
+                }))
+
+                db.delete(document)
+                db.commit()
+                return None
+
+            # Generar filename seguro para Content-Disposition
+            import re
+            safe_filename = re.sub(r'[^\w\s-]', '', document.title.strip())
+            safe_filename = re.sub(r'[-\s]+', '_', safe_filename)
+            safe_filename = f"{safe_filename}.{document.file_type}"
+
+            # Logging estructurado
+            query_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+            logger.info(json.dumps({
+                "event": "download_prepared",
+                "document_id": document_id,
+                "title": document.title,
+                "file_type": document.file_type,
+                "file_size_bytes": document.file_size_bytes,
+                "query_time_ms": round(query_time_ms, 2),
+                "success": True,
+                "timestamp": datetime.now().isoformat()
+            }))
+
+            return (document.file_path, document.file_type, safe_filename, document.file_size_bytes)
+
+        except Exception as e:
+            query_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+            logger.error(json.dumps({
+                "event": "download_preparation_error",
+                "document_id": document_id,
+                "error": str(e),
+                "query_time_ms": round(query_time_ms, 2),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }))
+
+            raise  # Re-raise para que el controller maneje el 500
+
+    @staticmethod
+    async def get_document_preview(document_id: int, db: Session) -> Optional[str]:
+        """
+        Obtiene los primeros 500 caracteres del contenido de un documento.
+
+        Args:
+            document_id: ID del documento a previsualizar
+            db: Sesión de base de datos SQLModel
+
+        Returns:
+            Optional[str]: Primeros 500 caracteres o None si no existe
+
+        Example:
+            >>> async with get_session() as db:
+            >>>     preview = await DocumentService.get_document_preview(123, db)
+            >>>     if preview:
+            >>>         print(f"Preview: {preview[:50]}...")
+        """
+        start_time = datetime.now()
+
+        try:
+            # Obtener documento de la base de datos
+            statement = select(Document).where(Document.id == document_id)
+            document = db.exec(statement).first()
+
+            if not document:
+                return None
+
+            # Retornar primeros 500 caracteres si hay contenido
+            if not document.content_text:
+                return None
+
+            preview_text = document.content_text[:500]
+
+            # Logging estructurado
+            query_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+            logger.info(json.dumps({
+                "event": "document_previewed",
+                "document_id": document_id,
+                "title": document.title,
+                "preview_length": len(preview_text),
+                "query_time_ms": round(query_time_ms, 2),
+                "success": True,
+                "timestamp": datetime.now().isoformat()
+            }))
+
+            return preview_text
+
+        except Exception as e:
+            query_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+            logger.error(json.dumps({
+                "event": "document_preview_error",
+                "document_id": document_id,
+                "error": str(e),
+                "query_time_ms": round(query_time_ms, 2),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }))
+
+            raise  # Re-raise para que el controller maneje el 500

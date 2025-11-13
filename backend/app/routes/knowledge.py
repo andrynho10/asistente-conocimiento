@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks, Request
+from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 from typing import Optional
 import os
@@ -489,6 +490,163 @@ async def list_categories(
         categories = await DocumentService.get_categories(db)
         return categories
 
+    except Exception as e:
+        # Error genérico del servidor
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "SERVER_ERROR",
+                "message": "Error interno del servidor"
+            }
+        )
+
+@router.get("/documents/{document_id}/download")
+async def download_document(
+    document_id: int,
+    request: Request,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint para descargar documentos del repositorio.
+
+    AC1: GET /api/knowledge/documents/{document_id}/download retorna archivo binario
+    AC2: 404 si documento no existe, 401 si no autenticado
+    AC3: Elimina registros huérfanos, sanitiza filename, valida path
+
+    Args:
+        document_id: ID del documento a descargar
+        request: Request object para obtener IP address
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (admin o user)
+
+    Returns:
+        FileResponse: Archivo binario con headers correctos
+
+    Raises:
+        HTTPException 404: Si el documento no existe o archivo huérfano
+        HTTPException 500: Error interno del servidor
+    """
+    try:
+        # Obtener información de descarga desde DocumentService
+        download_info = await DocumentService.download_document(document_id, db)
+
+        if not download_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "DOCUMENT_NOT_FOUND",
+                    "message": "El documento solicitado no existe"
+                }
+            )
+
+        file_path, file_type, safe_filename, file_size = download_info
+
+        # Determinar Content-Type según file_type
+        content_type_map = {
+            'pdf': 'application/pdf',
+            'txt': 'text/plain'
+        }
+        media_type = content_type_map.get(file_type, 'application/octet-stream')
+
+        # Validar que el path esté dentro del directorio uploads permitido
+        # Prevenir directory traversal
+        if not os.path.abspath(file_path).startswith(os.path.abspath(UPLOAD_DIR)):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "DOCUMENT_NOT_FOUND",
+                    "message": "El documento solicitado no existe"
+                }
+            )
+
+        # Registrar auditoría de descarga
+        try:
+            ip_address = request.client.host if request.client else "unknown"
+            audit_log = AuditLogCreate(
+                user_id=current_user.id,
+                action="DOCUMENT_DOWNLOADED",
+                resource_type="document",
+                resource_id=document_id,
+                ip_address=ip_address,
+                details=f"Document '{safe_filename}' downloaded by user {current_user.username}"
+            )
+
+            audit_entry = AuditLog.model_validate(audit_log)
+            db.add(audit_entry)
+            db.commit()
+
+        except Exception as e:
+            # No fallar el endpoint si auditoría falla, pero loggear error
+            print(f"Error creating audit log: {e}")
+
+        # Retornar FileResponse con headers correctos
+        return FileResponse(
+            path=file_path,
+            media_type=media_type,
+            filename=safe_filename
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (como 404)
+        raise
+    except Exception as e:
+        # Error genérico del servidor
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "SERVER_ERROR",
+                "message": "Error interno del servidor"
+            }
+        )
+
+
+@router.get("/documents/{document_id}/preview")
+async def preview_document(
+    document_id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint para obtener vista previa de documento (primeros 500 caracteres).
+
+    AC5: GET /api/knowledge/documents/{document_id}/preview retorna primeros 500 caracteres
+
+    Args:
+        document_id: ID del documento a previsualizar
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (admin o user)
+
+    Returns:
+        dict: Preview del documento con primeros 500 caracteres
+
+    Raises:
+        HTTPException 404: Si el documento no existe
+        HTTPException 500: Error interno del servidor
+    """
+    try:
+        # Obtener preview desde DocumentService
+        preview_text = await DocumentService.get_document_preview(document_id, db)
+
+        if preview_text is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "DOCUMENT_NOT_FOUND",
+                    "message": "El documento solicitado no existe o no tiene contenido extraído"
+                }
+            )
+
+        return {
+            "document_id": document_id,
+            "preview": preview_text,
+            "preview_length": len(preview_text),
+            "message": "Preview del documento"
+        }
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (como 404)
+        raise
     except Exception as e:
         # Error genérico del servidor
         raise HTTPException(
