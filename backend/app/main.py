@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_db_and_tables
 from app.auth.routes import router as auth_router
+from app.routes.knowledge import router as knowledge_router
 from app.auth.models import HealthResponse
 from app.core.config import get_settings
 
@@ -47,6 +48,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(knowledge_router)
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
