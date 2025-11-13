@@ -81,7 +81,84 @@ poetry install
 
 Esto creará un entorno virtual e instalará todas las dependencias especificadas en `pyproject.toml`.
 
-### 4. Instalar Dependencias del Frontend
+### 4. Configurar Ollama (Opcional - Para funcionalidades de IA)
+
+Las funcionalidades de IA generativa requieren Ollama y el modelo Llama 3.1.
+
+#### Instalación de Ollama
+
+**Windows:**
+1. Descarga el instalador desde [https://ollama.com/download](https://ollama.com/download)
+2. Ejecuta el instalador y sigue las instrucciones
+3. Reinicia tu terminal
+
+**macOS/Linux:**
+```bash
+# macOS con Homebrew
+brew install ollama
+
+# Linux (curl script)
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+#### Descargar el Modelo Llama 3.1
+
+```bash
+# Descargar el modelo cuantizado (recomendado, ~4.7GB)
+ollama pull llama3.1:8b-instruct-q4_K_M
+
+# Verificar que el modelo esté disponible
+ollama list
+```
+
+#### Iniciar Ollama
+
+```bash
+# Iniciar el servicio Ollama
+ollama serve
+```
+
+Ollama se ejecutará en `http://localhost:11434` por defecto.
+
+#### Verificar Instalación
+
+```bash
+# Probar que Ollama está funcionando
+curl http://localhost:11434/api/tags
+
+# Deberías ver una respuesta JSON con los modelos disponibles
+```
+
+#### Requisitos del Sistema
+
+- **RAM:** Mínimo 8GB (recomendado 16GB+)
+- **Almacenamiento:** ~5GB de espacio libre para el modelo
+- **CPU:** Soporta ejecución en CPU (GPU opcional para mejor rendimiento)
+
+#### Troubleshooting Común
+
+**Problema:** "Connection refused" al acceder a Ollama
+```bash
+# Solución: Asegúrate que Ollama está corriendo
+ollama serve
+# o reinicia el servicio según tu SO
+```
+
+**Problema:** Error de memoria insuficiente
+```bash
+# Solución: Usa un modelo más pequeño o cierra otras aplicaciones
+ollama pull llama3.1:8b-instruct-q4_K_M  # Ya es el modelo cuantizado
+```
+
+**Problema:** El modelo no responde
+```bash
+# Solución: Verifica que el modelo esté descargado
+ollama list
+# Si no está en la lista, vuelve a descargarlo
+ollama pull llama3.1:8b-instruct-q4_K_M
+```
+
+### 5. Instalar Dependencias del Frontend
 
 ```bash
 cd ../frontend
@@ -101,6 +178,32 @@ poetry run uvicorn app.main:app --reload
 El backend estará disponible en: `http://localhost:8000`
 
 Documentación interactiva de la API: `http://localhost:8000/docs`
+
+#### Endpoints de IA (si Ollama está configurado)
+
+Si tienes Ollama corriendo, los siguientes endpoints estarán disponibles:
+
+- **Health Check:** `GET http://localhost:8000/api/ia/health`
+  - Verifica si el servicio Ollama está disponible
+  - Retorna estado del modelo y tiempo de respuesta
+
+- **Generación de Texto:** `POST http://localhost:8000/api/ia/generate`
+  - Genera texto usando el modelo Llama 3.1
+  - Requiere body JSON: `{"prompt": "Tu pregunta aquí"}`
+
+- **Lista de Modelos:** `GET http://localhost:8000/api/ia/models`
+  - Muestra todos los modelos disponibles en Ollama
+
+**Ejemplo de uso:**
+```bash
+# Verificar health check
+curl http://localhost:8000/api/ia/health
+
+# Generar texto
+curl -X POST http://localhost:8000/api/ia/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "¿Qué es el aprendizaje automático?"}'
+```
 
 ### Frontend (Interfaz de Usuario)
 
