@@ -313,6 +313,137 @@ class RetrieveResponse(BaseModel):
     )
 
 
+class SourceInfo(BaseModel):
+    """
+    Source information in RAG response.
+
+    AC#5: Structured source information returned with RAG answers,
+    including document reference and relevance score.
+    """
+    document_id: int = Field(
+        ...,
+        description="ID of the source document",
+        ge=1,
+        examples=[1, 42, 123]
+    )
+    title: str = Field(
+        ...,
+        description="Title of the source document",
+        examples=["Política de Vacaciones Anuales", "Procedimientos de Contratación"]
+    )
+    relevance_score: float = Field(
+        ...,
+        description="Relevance score (0.0-1.0) indicating how well the document matches the query",
+        ge=0.0,
+        le=1.0,
+        examples=[0.95, 0.87, 0.72]
+    )
+
+
+class RAGRequest(BaseModel):
+    """
+    Request model for RAG query endpoint.
+
+    AC#3: Defines parameters for RAG pipeline queries.
+    """
+    query: str = Field(
+        ...,
+        description="User's natural language query",
+        min_length=2,
+        max_length=500,
+        examples=["¿Cuántos días de vacaciones tengo?", "¿Cuál es el procedimiento de contratación?"]
+    )
+    top_k: Optional[int] = Field(
+        3,
+        description="Number of documents to retrieve for context",
+        ge=1,
+        le=10,
+        examples=[3, 5]
+    )
+    temperature: Optional[float] = Field(
+        0.3,
+        description="LLM temperature for response generation (0.0-1.0, lower = more deterministic)",
+        ge=0.0,
+        le=1.0,
+        examples=[0.3, 0.7]
+    )
+    max_tokens: Optional[int] = Field(
+        500,
+        description="Maximum tokens in LLM response",
+        ge=1,
+        le=4096,
+        examples=[500, 1000]
+    )
+
+    @field_validator('query')
+    @classmethod
+    def validate_query(cls, v):
+        """Validate query content."""
+        if not v or not v.strip():
+            raise ValueError('Query cannot be empty or whitespace only')
+        return v.strip()
+
+
+class RAGResponse(BaseModel):
+    """
+    Response model for RAG query endpoint.
+
+    AC#5: Implements the complete response structure with answer,
+    sources, and metadata about the generation process.
+    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "answer": "Según la política de vacaciones, los empleados tienen derecho a 15 días hábiles anuales. Esto se especifica en el artículo 3 de la Política de Vacaciones Anuales.\n\n*Nota: Esta respuesta fue generada por IA. Verifica con tu supervisor si tienes dudas.*",
+                    "sources": [
+                        {
+                            "document_id": 1,
+                            "title": "Política de Vacaciones Anuales",
+                            "relevance_score": 0.95
+                        }
+                    ],
+                    "response_time_ms": 1245.5,
+                    "documents_retrieved": 1
+                },
+                {
+                    "answer": "Lo siento, no encontré documentos relevantes para tu consulta. Por favor, intenta formular la pregunta de otra manera.\n\n*Nota: Esta respuesta fue generada por IA. Verifica con tu supervisor si tienes dudas.*",
+                    "sources": [],
+                    "response_time_ms": 120.3,
+                    "documents_retrieved": 0
+                }
+            ]
+        }
+    )
+
+    answer: str = Field(
+        ...,
+        description="AI-generated answer grounded in retrieved documents. Includes disclaimer per AC#7.",
+        examples=["Según los documentos, los empleados tienen derecho a 15 días de vacaciones anuales..."]
+    )
+    sources: List[SourceInfo] = Field(
+        ...,
+        description="List of source documents used to generate the answer. AC#5 structure.",
+        examples=[[{
+            "document_id": 1,
+            "title": "Política de Vacaciones",
+            "relevance_score": 0.95
+        }]]
+    )
+    response_time_ms: float = Field(
+        ...,
+        description="Total response time in milliseconds. AC#8: metric for RNF2 (<2s P95).",
+        ge=0,
+        examples=[1245.5, 2000.0]
+    )
+    documents_retrieved: int = Field(
+        ...,
+        description="Number of documents retrieved in retrieval phase. AC#8: metric for logging.",
+        ge=0,
+        examples=[0, 3, 5]
+    )
+
+
 class ErrorResponse(BaseModel):
     """
     Standard error response model for IA endpoints.

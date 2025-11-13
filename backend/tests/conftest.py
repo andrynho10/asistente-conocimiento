@@ -2,11 +2,19 @@
 Configuración de pytest para tests del backend.
 
 Este archivo define fixtures compartidas y configuración global para pytest.
+Maneja la configuración de base de datos de prueba antes de importar los modelos.
 """
 import pytest
 import os
 import tempfile
+import sys
 from pathlib import Path
+from unittest.mock import patch
+
+# CRÍTICO: Establecer entorno de testing ANTES de importar la app
+os.environ["FASTAPI_ENV"] = "testing"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
 from sqlmodel import Session, create_engine, SQLModel
 from fastapi.testclient import TestClient
 
@@ -30,49 +38,52 @@ def backend_root():
 
 
 @pytest.fixture(scope="function")
-def test_db():
+def test_engine():
     """
-    Fixture con base de datos en memoria para tests.
+    Fixture que crea un engine de base de datos en memoria para cada test.
 
-    Crea una base de datos SQLite en memoria para cada test,
-    garantizando aislamiento entre tests.
+    El mismo engine se reutiliza en test_db_session y test_client
+    para garantizar consistencia en toda la prueba.
     """
-    # Crear motor en memoria
-    test_engine = create_engine("sqlite:///:memory:", echo=False)
-
-    # Crear todas las tablas definidas en SQLModel
-    SQLModel.metadata.create_all(test_engine)
-
-    # Proporcionar sesión para el test
-    with Session(test_engine) as session:
-        yield session
-
-
-@pytest.fixture
-def test_db_session():
-    """Fixture para base de datos de prueba en memoria (alias de test_db para compatibilidad)"""
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         echo=False
     )
     SQLModel.metadata.create_all(engine)
+    yield engine
+    # Cleanup: drop all tables
+    SQLModel.metadata.drop_all(engine)
 
-    # Usar la misma conexión para todo el test
-    connection = engine.connect()
-    session = Session(bind=connection)
 
-    yield session
+@pytest.fixture
+def test_db_session(test_engine):
+    """
+    Fixture para base de datos de prueba en memoria.
 
-    session.close()
-    connection.close()
+    Usa el mismo engine que test_client para consistencia.
+    """
+    with Session(test_engine) as session:
+        yield session
+
+
+@pytest.fixture
+def test_db(test_engine):
+    """Alias de test_db_session para compatibilidad"""
+    with Session(test_engine) as session:
+        yield session
 
 
 @pytest.fixture
 def test_client(test_db_session):
-    """Fixture para cliente de prueba con base de datos aislada"""
+    """
+    Fixture para cliente de prueba con base de datos aislada.
+
+    Usa la misma sesión que test_db_session para garantizar que los datos
+    creados en fixtures (como test_user) estén disponibles en el cliente HTTP.
+    """
     def override_get_session():
-        return test_db_session
+        yield test_db_session
 
     app.dependency_overrides[get_session] = override_get_session
     client = TestClient(app)

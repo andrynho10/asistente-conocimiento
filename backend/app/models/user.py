@@ -11,6 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from .audit import AuditLog
     from .document import Document
+    from .query import Query
 
 
 class UserRole(str, Enum):

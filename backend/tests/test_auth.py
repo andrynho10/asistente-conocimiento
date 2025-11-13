@@ -1,43 +1,20 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, Session
-from app.main import app
-from app.database import get_session
 from app.models.user import User, UserRole
 from app.core.security import get_password_hash
 
-# Test database setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+# Las fixtures test_db_session y test_client están definidas en conftest.py
+# Este archivo las usa directamente
 
-TestingSessionLocal = Session(autocommit=False, autoflush=False, bind=engine)
-
-def override_get_session():
-    try:
-        yield TestingSessionLocal
-    finally:
-        pass
-
-app.dependency_overrides[get_session] = override_get_session
-
-@pytest.fixture(scope="function", autouse=True)
-def setup_test_db():
-    SQLModel.metadata.create_all(bind=engine)
-    yield
-    SQLModel.metadata.drop_all(bind=engine)
 
 @pytest.fixture
-def client():
-    return TestClient(app)
+def client(test_client):
+    """Alias para test_client para compatibilidad con tests existentes"""
+    return test_client
+
 
 @pytest.fixture
-def test_user():
+def test_user(test_db_session):
+    """Crea un usuario de prueba en la BD de testing"""
     user = User(
         username="testuser",
         email="test@example.com",
@@ -46,13 +23,14 @@ def test_user():
         role=UserRole.user,
         is_active=True
     )
-    TestingSessionLocal.add(user)
-    TestingSessionLocal.commit()
-    TestingSessionLocal.refresh(user)
+    test_db_session.add(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
     return user
 
 @pytest.fixture
-def admin_user():
+def admin_user(test_db_session):
+    """Crea un usuario administrador de prueba"""
     user = User(
         username="admin",
         email="admin@example.com",
@@ -61,9 +39,9 @@ def admin_user():
         role=UserRole.admin,
         is_active=True
     )
-    TestingSessionLocal.add(user)
-    TestingSessionLocal.commit()
-    TestingSessionLocal.refresh(user)
+    test_db_session.add(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
     return user
 
 class TestAuthentication:

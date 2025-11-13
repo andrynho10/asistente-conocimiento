@@ -7,27 +7,12 @@ import pytest
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
 
-from app.database import create_db_and_tables, engine
+# Nota: No importamos 'engine' directamente porque está configurado para BD real
+# Los tests usan la fixture 'test_db' que proporciona una BD en memoria
 from app.models import (
     User, UserRole, Document, AuditLog,
     AuditAction, AuditResourceType
 )
-
-
-@pytest.fixture(scope="function")
-def test_db():
-    """Fixture con base de datos en memoria para tests"""
-    # Crear motor en memoria
-    from sqlmodel import create_engine
-    test_engine = create_engine("sqlite:///:memory:", echo=False)
-
-    # Crear tablas
-    from sqlmodel import SQLModel
-    SQLModel.metadata.create_all(test_engine)
-
-    # Proporcionar sesión
-    with Session(test_engine) as session:
-        yield session
 
 
 class TestUserModel:
