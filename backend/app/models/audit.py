@@ -55,6 +55,10 @@ class AuditAction:
     DOWNLOAD = "download"
     UPLOAD = "upload"
     PASSWORD_CHANGE = "password_change"
+    DOCUMENT_DELETED = "DOCUMENT_DELETED"
+    DELETE_ATTEMPT = "DELETE_ATTEMPT"
+    DOCUMENT_UPLOADED = "DOCUMENT_UPLOADED"
+    DOCUMENT_DOWNLOADED = "DOCUMENT_DOWNLOADED"
 
 
 class AuditResourceType:

@@ -4,16 +4,20 @@ from sqlmodel import Session, select
 from typing import Optional
 import os
 import re
+import logging
 from datetime import datetime
 from app.database import get_session
-from app.middleware.auth import get_current_user, require_role
+from app.middleware.auth import get_current_user
 from app.models.user import User, UserRole
 from app.models.document import Document, DocumentCategory, DocumentStatusResponse, SearchResponse, DocumentResponse, DocumentListRequest, CategoryResponse
-from app.models.audit import AuditLog, AuditLogCreate
+from app.models.audit import AuditLog, AuditLogCreate, AuditAction
 from app.services.document_service import DocumentService
 from app.services.search_service import SearchService
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge management"])
+
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 # Configuración
 ALLOWED_EXTENSIONS = {'.pdf', '.txt'}
@@ -654,5 +658,112 @@ async def preview_document(
             detail={
                 "code": "SERVER_ERROR",
                 "message": "Error interno del servidor"
+            }
+        )
+
+
+@router.delete("/documents/{document_id}")
+async def delete_document(
+    document_id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    request: Request = None
+):
+    """
+    Endpoint para eliminar un documento del repositorio con auditoría completa.
+
+    AC1,2,3,4,5: DELETE /api/knowledge/documents/{document_id} con validación de admin role
+
+    Args:
+        document_id: ID del documento a eliminar
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (debe ser admin)
+        request: Objeto Request para obtener IP address
+
+    Returns:
+        dict: Confirmación de eliminación exitosa
+
+    Raises:
+        HTTPException 403: Si el usuario no tiene rol de admin
+        HTTPException 404: Si el documento no existe
+        HTTPException 500: Error interno del servidor
+    """
+    # AC 2: Validar rol de administrador
+    if current_user.role.value != UserRole.admin.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "INSUFFICIENT_PERMISSIONS",
+                "message": "Permisos insuficientes"
+            }
+        )
+
+    try:
+        # Usar DocumentService para eliminar el documento
+        deleted = await DocumentService.delete_document(document_id, db, current_user)
+
+        if not deleted:
+            # Crear audit log para intento fallido (documento no encontrado)
+            audit_log = AuditLogCreate(
+                user_id=current_user.id,
+                action=AuditAction.DELETE_ATTEMPT,
+                resource_type="document",
+                resource_id=document_id,
+                details=f"Intento de eliminación de documento inexistente: {document_id}",
+                ip_address=request.client.host if request else None
+            )
+
+            try:
+                audit_entry = AuditLog.model_validate(audit_log)
+                db.add(audit_entry)
+                db.commit()
+            except Exception as e:
+                # No fallar el endpoint si auditoría falla, pero loggear error
+                logger.error(f"Error creating audit log for delete attempt: {e}")
+
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "DOCUMENT_NOT_FOUND",
+                    "message": "El documento solicitado no existe"
+                }
+            )
+
+        # Crear audit log para eliminación exitosa
+        audit_log = AuditLogCreate(
+            user_id=current_user.id,
+            action=AuditAction.DOCUMENT_DELETED,
+            resource_type="document",
+            resource_id=document_id,
+            details=f"Documento {document_id} eliminado exitosamente por admin {current_user.username}",
+            ip_address=request.client.host if request else None
+        )
+
+        try:
+            audit_entry = AuditLog.model_validate(audit_log)
+            db.add(audit_entry)
+            db.commit()
+        except Exception as e:
+            # No fallar el endpoint si auditoría falla, pero loggear error
+            logger.error(f"Error creating audit log for document deletion: {e}")
+
+        return {
+            "document_id": document_id,
+            "deleted": True,
+            "message": "Documento eliminado exitosamente",
+            "deleted_by": current_user.username
+        }
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (como 404, 403)
+        raise
+    except Exception as e:
+        # Error genérico del servidor
+        print(f"Error in document deletion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "Error interno del servidor al eliminar el documento"
             }
         )

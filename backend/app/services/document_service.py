@@ -662,3 +662,136 @@ class DocumentService:
             }))
 
             raise  # Re-raise para que el controller maneje el 500
+
+    @staticmethod
+    async def delete_document(document_id: int, db: Session, current_user: 'User') -> bool:
+        """
+        Elimina un documento de manera segura con auditoría completa.
+
+        Args:
+            document_id: ID del documento a eliminar
+            db: Sesión de base de datos SQLModel
+            current_user: Usuario que realiza la eliminación
+
+        Returns:
+            bool: True si se eliminó exitosamente, False si no se encontró
+
+        Raises:
+            ValueError: Si hay errores de validación
+            Exception: Si hay errores genéricos
+
+        Example:
+            >>> async with get_session() as db:
+            >>>     success = await DocumentService.delete_document(123, db, current_user)
+            >>>     if success:
+            >>>         print("Documento eliminado exitosamente")
+        """
+        start_time = datetime.now()
+
+        try:
+            # Obtener documento de la base de datos
+            statement = select(Document).where(Document.id == document_id)
+            document = db.exec(statement).first()
+
+            if not document:
+                logger.info(json.dumps({
+                    "event": "document_delete_not_found",
+                    "document_id": document_id,
+                    "deleted_by": current_user.id,
+                    "query_time_ms": round((datetime.now() - start_time).total_seconds() * 1000, 2),
+                    "success": True,
+                    "timestamp": datetime.now().isoformat()
+                }))
+                return False
+
+            # Guardar información para auditoría antes de eliminar
+            document_info = {
+                "id": document.id,
+                "title": document.title,
+                "file_path": document.file_path,
+                "file_type": document.file_type,
+                "file_size_bytes": document.file_size_bytes,
+                "uploaded_by": document.uploaded_by,
+                "upload_date": document.upload_date.isoformat() if document.upload_date else None
+            }
+
+            # Iniciar transacción atómica
+            try:
+                # 1. Eliminar registro de la base de datos
+                # Nota: La entrada de documents_fts se elimina automáticamente por el trigger documents_ad
+                db.delete(document)
+
+                # 2. Eliminar archivo físico (manejar caso de archivo huérfano)
+                import os
+                file_deleted = False
+                orphaned_file = False
+
+                if document.file_path and os.path.exists(document.file_path):
+                    try:
+                        os.remove(document.file_path)
+                        file_deleted = True
+                        logger.info(json.dumps({
+                            "event": "physical_file_deleted",
+                            "document_id": document_id,
+                            "file_path": document.file_path,
+                            "timestamp": datetime.now().isoformat()
+                        }))
+                    except Exception as file_error:
+                        logger.error(json.dumps({
+                            "event": "physical_file_delete_error",
+                            "document_id": document_id,
+                            "file_path": document.file_path,
+                            "error": str(file_error),
+                            "timestamp": datetime.now().isoformat()
+                        }))
+                        # Continuar aunque no se pueda eliminar el archivo físico
+                elif document.file_path:
+                    # Archivo huérfano: no existe físicamente pero sí en DB
+                    orphaned_file = True
+                    logger.warning(json.dumps({
+                        "event": "orphaned_file_detected",
+                        "document_id": document_id,
+                        "file_path": document.file_path,
+                        "title": document.title,
+                        "timestamp": datetime.now().isoformat()
+                    }))
+
+                # 3. Commit de la transacción
+                db.commit()
+
+                # 4. Logging estructurado del éxito
+                operation_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+                logger.info(json.dumps({
+                    "event": "document_deleted",
+                    "document_id": document_id,
+                    "title": document.title,
+                    "deleted_by": current_user.id,
+                    "file_deleted": file_deleted,
+                    "orphaned_file": orphaned_file,
+                    "operation_time_ms": round(operation_time_ms, 2),
+                    "success": True,
+                    "timestamp": datetime.now().isoformat()
+                }))
+
+                return True
+
+            except Exception as db_error:
+                # Rollback en caso de error
+                db.rollback()
+                raise db_error
+
+        except Exception as e:
+            operation_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+            logger.error(json.dumps({
+                "event": "document_delete_error",
+                "document_id": document_id,
+                "deleted_by": current_user.id,
+                "error": str(e),
+                "operation_time_ms": round(operation_time_ms, 2),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }))
+
+            raise  # Re-raise para que el controller maneje el 500
