@@ -18,11 +18,16 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 from sqlmodel import Session, create_engine, SQLModel
 from fastapi.testclient import TestClient
 
+# CRÍTICO: Importar TODOS los modelos ANTES de create_engine
+# para que SQLModel.metadata registre las tablas
+from app.models.user import User, UserRole
+from app.models.document import Document, DocumentCategory
+from app.models.audit import AuditLog
+from app.core.security import get_password_hash
+
 from app.main import app
 from app.database import get_session
-from app.models.user import User, UserRole
-from app.models.document import DocumentCategory
-from app.core.security import get_password_hash
+from app import database  # Importar módulo completo para monkey-patching
 
 
 @pytest.fixture
@@ -44,16 +49,30 @@ def test_engine():
 
     El mismo engine se reutiliza en test_db_session y test_client
     para garantizar consistencia en toda la prueba.
+
+    CRÍTICO: Reemplaza el engine global en database.py para que FastAPI
+    use el mismo engine que el resto de los tests.
     """
-    engine = create_engine(
+    # Crear engine de prueba
+    test_db_engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         echo=False
     )
-    SQLModel.metadata.create_all(engine)
-    yield engine
-    # Cleanup: drop all tables
-    SQLModel.metadata.drop_all(engine)
+
+    # CRITICAL: Monkey-patch PRIMERO el engine global en database.py
+    # Esto asegura que get_session() use el mismo engine que nuestros tests
+    old_engine = database.engine
+    database.engine = test_db_engine
+
+    # DESPUÉS de parchear, crear las tablas
+    SQLModel.metadata.create_all(test_db_engine)
+
+    yield test_db_engine
+
+    # Cleanup: drop all tables y restaurar engine original
+    SQLModel.metadata.drop_all(test_db_engine)
+    database.engine = old_engine
 
 
 @pytest.fixture
@@ -75,19 +94,31 @@ def test_db(test_engine):
 
 
 @pytest.fixture
-def test_client(test_db_session):
+def test_client(test_engine, test_db_session):
     """
     Fixture para cliente de prueba con base de datos aislada.
 
     Usa la misma sesión que test_db_session para garantizar que los datos
     creados en fixtures (como test_user) estén disponibles en el cliente HTTP.
+    CRÍTICO: Recibe test_engine explícitamente para asegurar que las tablas
+    se crean antes de que el cliente inicie.
+
+    IMPORTANTE: El TestClient ejecuta el lifespan de FastAPI que llama a
+    create_db_and_tables() usando database.engine. Por eso monkey-patcheamos
+    el engine ANTES de crear el cliente.
     """
+    # Override la dependencia ANTES de crear el TestClient
     def override_get_session():
         yield test_db_session
 
     app.dependency_overrides[get_session] = override_get_session
+
+    # El TestClient ahora usará database.engine (ya parchado) para create_db_and_tables()
     client = TestClient(app)
+
     yield client
+
+    # Cleanup
     app.dependency_overrides.clear()
 
 

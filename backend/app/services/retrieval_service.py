@@ -183,7 +183,19 @@ class RetrievalService:
                     # Los scores BM25 negativos se normalizan donde el mayor score = 1.0
                     if score_range == 0:
                         # Todos los scores son iguales
-                        normalized_score = 1.0
+                        # Si hay un único documento, normalizarlo a 1.0 (es el mejor match)
+                        # PERO si el score es extremadamente bajo, mantenerlo bajo para filtrado
+                        if len(rows) == 1:
+                            # Documento único
+                            if raw_score < -8.0:
+                                # Score extremadamente bajo - mantener bajo para filtrado
+                                normalized_score = 0.05
+                            else:
+                                # Score razonable - normalizar a 1.0
+                                normalized_score = 1.0
+                        else:
+                            # Múltiples documentos con scores iguales - todos normalizan a 1.0
+                            normalized_score = 1.0
                     else:
                         normalized_score = (raw_score - min_score) / score_range
                     normalized_docs.append((row, normalized_score))

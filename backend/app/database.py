@@ -21,8 +21,11 @@ def create_db_and_tables() -> None:
     """
     Crea todas las tablas definidas en los modelos SQLModel
     Esta función debe llamarse durante la inicialización de la aplicación
+
+    Nota: Usa 'engine' global para permitir monkey-patching en tests
     """
-    SQLModel.metadata.create_all(engine)
+    import app.database as db_module
+    SQLModel.metadata.create_all(db_module.engine)
 
 
 def get_session() -> Generator[Session, None, None]:
@@ -41,6 +44,9 @@ def get_session() -> Generator[Session, None, None]:
         def read_users(session: Session = Depends(get_session)):
             return session.exec(select(User)).all()
         ```
+
+    Nota: Usa db_module.engine para permitir monkey-patching en tests
     """
-    with Session(engine) as session:
+    import app.database as db_module
+    with Session(db_module.engine) as session:
         yield session
