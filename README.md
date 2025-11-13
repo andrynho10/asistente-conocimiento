@@ -48,7 +48,7 @@ Antes de comenzar, asegúrate de tener instalado:
 ### 1. Clonar el Repositorio
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/andrynho10/asistente-conocimiento.git
 cd asistente-conocimiento
 ```
 
