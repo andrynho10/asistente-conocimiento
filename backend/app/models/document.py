@@ -105,3 +105,28 @@ class DocumentStatusResponse(SQLModel):
     is_indexed: bool
     indexed_at: datetime | None = None
     status: str  # 'indexed', 'processing', 'error'
+
+
+# Schemas para búsqueda full-text
+class SearchRequest(SQLModel):
+    """Schema para request de búsqueda full-text"""
+    q: str = Field(min_length=2, max_length=200, description="Query de búsqueda")
+    limit: int = Field(default=20, ge=1, le=100, description="Número máximo de resultados")
+    offset: int = Field(default=0, ge=0, description="Offset para paginación")
+
+
+class SearchResult(SQLModel):
+    """Schema para un resultado individual de búsqueda"""
+    document_id: int
+    title: str
+    category: str
+    relevance_score: float = Field(ge=0.0, le=1.0, description="Score de relevancia normalizado")
+    snippet: str | None = Field(default=None, description="Fragmento de contexto con la coincidencia")
+    upload_date: datetime
+
+
+class SearchResponse(SQLModel):
+    """Schema para respuesta completa de búsqueda"""
+    query: str
+    total_results: int
+    results: list[SearchResult]

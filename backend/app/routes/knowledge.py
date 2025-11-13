@@ -7,9 +7,10 @@ from datetime import datetime
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_role
 from app.models.user import User, UserRole
-from app.models.document import Document, DocumentCategory, DocumentStatusResponse
+from app.models.document import Document, DocumentCategory, DocumentStatusResponse, SearchResponse
 from app.models.audit import AuditLog, AuditLogCreate
 from app.services.document_service import DocumentService
+from app.services.search_service import SearchService
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge management"])
 
@@ -257,3 +258,72 @@ async def get_document_status(
         indexed_at=document.indexed_at,
         status=doc_status
     )
+
+
+@router.get("/search", response_model=SearchResponse)
+async def search_documents(
+    q: str,
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint de búsqueda full-text sobre documentos indexados.
+
+    Permite buscar documentos por palabras clave en título y contenido,
+    retornando resultados ordenados por relevancia con snippets de contexto.
+
+    AC3: Endpoint GET /api/knowledge/search con autenticación requerida
+    AC4: Soporte para palabras clave, frases exactas y operadores booleanos
+    AC5: Resultados incluyen snippets y paginación
+
+    Args:
+        q: Query de búsqueda (mínimo 2 caracteres, máximo 200)
+        limit: Número máximo de resultados (1-100, default 20)
+        offset: Offset para paginación (default 0)
+        db: Sesión de base de datos
+        current_user: Usuario autenticado (requerido)
+
+    Returns:
+        SearchResponse: Resultados de búsqueda con query, total y lista de documentos
+
+    Raises:
+        HTTPException 400: Si query es inválida (muy corta o muy larga)
+        HTTPException 500: Si hay error interno en búsqueda FTS5
+
+    Examples:
+        GET /api/knowledge/search?q=vacaciones
+        GET /api/knowledge/search?q="políticas de RRHH"&limit=10
+        GET /api/knowledge/search?q=reembolso AND urgente&offset=20
+    """
+    try:
+        # AC3: Autenticación ya validada por Depends(get_current_user)
+        # AC4: SearchService maneja palabras clave, frases y operadores
+        results = await SearchService.search_documents(
+            query=q,
+            limit=limit,
+            offset=offset,
+            db=db
+        )
+
+        return results
+
+    except ValueError as e:
+        # AC7: Manejo de errores de validación (query muy corta/larga)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_QUERY",
+                "message": str(e)
+            }
+        )
+    except Exception as e:
+        # AC7: Manejo de errores internos con logging
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "SEARCH_ERROR",
+                "message": "Error interno en búsqueda"
+            }
+        )
