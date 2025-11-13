@@ -584,21 +584,21 @@ class TestIntegration:
         """
         Test real connection to Ollama (integration test).
 
-        This test requires Ollama to be running and is marked as slow.
-        It should only run in environments where Ollama is available.
+        This test requires Ollama to be running locally.
+        Tests health check and basic text generation capability.
         """
-        pytest.skip("Integration test - requires Ollama to be running")
-
-        # This would be the actual test if Ollama is available
+        # Create service with real connection to local Ollama
         service = OllamaLLMService(timeout=5)
 
-        if service.health_check():
-            # If service is available, test generation
-            result = service.generate_response("Hello", max_tokens=10)
-            assert len(result) > 0
-        else:
-            # If service is not available, that's also valid
-            pytest.skip("Ollama not available for integration test")
+        # Verify Ollama is healthy and responding
+        is_healthy = service.health_check()
+        assert is_healthy is True, "Ollama service should be available at localhost:11434"
+
+        # Test text generation capability
+        result = service.generate_response("What is 2+2?", max_tokens=10)
+        assert result is not None
+        assert len(result) > 0
+        assert isinstance(result, str)
 
 
 @pytest.fixture
