@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from sqlmodel import Session, select
 from typing import Optional
 import os
@@ -7,8 +7,9 @@ from datetime import datetime
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_role
 from app.models.user import User, UserRole
-from app.models.document import Document, DocumentCategory
+from app.models.document import Document, DocumentCategory, DocumentStatusResponse
 from app.models.audit import AuditLog, AuditLogCreate
+from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge management"])
 
@@ -54,6 +55,7 @@ async def validate_file_size(file: UploadFile) -> bool:
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(...),
     description: Optional[str] = Form(None),
@@ -183,7 +185,18 @@ async def upload_document(
         # No fallar el endpoint si auditoría falla, pero loggear error
         print(f"Error creating audit log: {e}")
 
-    # AC 1: Respuesta exitosa
+    # AC3: Agregar extracción de texto en background
+    # Crear una nueva sesión de DB para el background task
+    def extract_text_task():
+        from app.database import engine
+        from sqlmodel import Session
+        import asyncio
+        with Session(engine) as task_db:
+            asyncio.run(DocumentService.extract_text(document_id, task_db))
+
+    background_tasks.add_task(extract_text_task)
+
+    # AC 1: Respuesta exitosa (retorna inmediatamente sin esperar extracción)
     return {
         "document_id": document_id,
         "title": title,
@@ -191,3 +204,56 @@ async def upload_document(
         "status": "uploaded",
         "message": "Documento cargado exitosamente"
     }
+
+
+@router.get("/documents/{id}/status", response_model=DocumentStatusResponse)
+async def get_document_status(
+    id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint para consultar el estado de indexación de un documento.
+
+    AC4: Retorna información sobre si el documento ha sido indexado,
+    cuándo fue indexado, y el estado actual del proceso.
+
+    Args:
+        id: ID del documento a consultar
+        db: Sesión de base de datos
+        current_user: Usuario autenticado
+
+    Returns:
+        DocumentStatusResponse: Estado de indexación del documento
+
+    Raises:
+        HTTPException 404: Si el documento no existe
+    """
+    # AC4: Consultar Document por ID
+    statement = select(Document).where(Document.id == id)
+    document = db.exec(statement).first()
+
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "DOCUMENT_NOT_FOUND",
+                "message": f"Documento con ID {id} no encontrado"
+            }
+        )
+
+    # AC4: Determinar status según is_indexed
+    if document.is_indexed:
+        doc_status = "indexed"
+    else:
+        # Si content_text es None, aún no ha sido procesado
+        doc_status = "processing"
+
+    # AC4: Retornar DocumentStatusResponse
+    return DocumentStatusResponse(
+        document_id=document.id,
+        title=document.title,
+        is_indexed=document.is_indexed,
+        indexed_at=document.indexed_at,
+        status=doc_status
+    )

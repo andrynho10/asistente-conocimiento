@@ -96,3 +96,12 @@ class DocumentCategoryUpdate(SQLModel):
     """Schema para actualizar una categoría de documento existente"""
     name: str | None = Field(default=None, max_length=100)
     description: str | None = Field(default=None)
+
+
+class DocumentStatusResponse(SQLModel):
+    """Schema para respuesta de estado de indexación de documento"""
+    document_id: int
+    title: str
+    is_indexed: bool
+    indexed_at: datetime | None = None
+    status: str  # 'indexed', 'processing', 'error'
