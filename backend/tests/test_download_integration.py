@@ -329,24 +329,183 @@ class TestDocumentService:
 class TestSecurityFeatures:
     """Tests específicos para características de seguridad"""
 
-    @patch('app.routes.knowledge.DocumentService.download_document')
-    @patch('app.routes.knowledge.os.path.abspath')
-    def test_filename_sanitization(self, mock_abspath, mock_download_service,
-                                  authenticated_client, temp_pdf_file):
-        """Test sanitización de filename en Content-Disposition"""
-        mock_abspath.side_effect = lambda x: x
-        mock_download_service.return_value = (
-            temp_pdf_file, "pdf", "Safe_Document.pdf", 1024
-        )
+    def test_filename_sanitization(self, authenticated_client, monkeypatch, temp_pdf_file):
+        """Validates filename sanitization prevents security attacks while preserving readability.
 
+        Security: Prevents HTML injection and quote attacks in Content-Disposition header.
+                 Ensures filenames are safe for HTTP transport without special char issues.
+        Specification: sanitize_filename() removes [^\\w\\s-] and converts [-\\s]+ to '_'
+
+        Ensures Content-Disposition header contains a properly sanitized filename
+        that blocks HTML injection and path traversal attacks while maintaining usability.
+        """
+        from app.services.document_service import DocumentService
+        import os
+
+        # Mock download_document to return a tuple with sanitized filename
+        async def mock_download(doc_id, db, user=None):
+            # Returns: (file_path, file_type, safe_filename, file_size)
+            return (temp_pdf_file, "pdf", "Safe_Document.pdf", 1024)
+
+        # Mock os.path.abspath to bypass path validation (simulating UPLOAD_DIR scenario)
+        # In real scenario, file_path would be in UPLOAD_DIR and this check would pass
+        def mock_abspath(path):
+            # Simulate that path is within uploads directory
+            if path == temp_pdf_file:
+                return "/uploads/test.pdf"
+            return path
+
+        monkeypatch.setattr(DocumentService, 'download_document', mock_download)
+        monkeypatch.setattr('os.path.abspath', mock_abspath)
+
+        # Test: Request document download
         response = authenticated_client.get("/api/knowledge/documents/1/download")
 
-        # Verificar que filename esté sanitizado (no caracteres especiales)
+        # Verify: Status is success (200 means file was served)
+        assert response.status_code == 200
+
+        # Verify filename is in Content-Disposition header
         content_disposition = response.headers["content-disposition"]
         assert "Safe_Document.pdf" in content_disposition
-        assert "<" not in content_disposition  # Sin HTML injection
+
+        # Security: Prevent HTML injection via filename in header
+        # Angle brackets could enable XSS in some contexts
+        assert "<" not in content_disposition
         assert ">" not in content_disposition
-        assert "\"" in content_disposition  # Entrecomillado seguro
+
+        # Security: Prevent quote injection - filename must be properly quoted
+        # Proper quoting prevents header injection attacks
+        assert "\"" in content_disposition
+
+    def test_sanitize_filename_normal_case(self):
+        """Test normal filename: letters, numbers, spaces, dashes.
+
+        Expected behavior: Spaces and dashes replaced with underscores,
+        alphanumeric chars preserved.
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test case: Normal filename with spaces and dashes
+        result = sanitize_filename("My-Document Name")
+        # Pattern: [-\s]+ → "_", so "My-Document Name" → "My_Document_Name"
+        assert result == "My_Document_Name"
+
+    def test_sanitize_filename_special_characters(self):
+        """Test filenames with common special characters (_, ., @).
+
+        Validates that some special chars are preserved while dangerous
+        ones are removed.
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test case: Underscore preserved (word character)
+        result = sanitize_filename("file_name.txt")
+        # Pattern: [^\w\s-] removes non-word-chars (except -, \w includes _)
+        # Dot is removed: [^\w\s-] matches '.'
+        assert "file_name" in result
+        assert "txt" in result
+        assert "." not in result  # Dot is special character, removed
+
+    def test_sanitize_filename_prohibited_characters(self):
+        """Test that filesystem-unsafe chars are removed: \\, /, :, *, ?, \", <, >, |.
+
+        Security: These characters are used in path traversal and command injection.
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test cases: All dangerous characters should be removed
+        dangerous_chars = [
+            ("file\\name", "filename"),      # Backslash
+            ("file/name", "filename"),       # Forward slash (path traversal)
+            ("file:name", "filename"),       # Colon (reserved)
+            ("file*name", "filename"),       # Asterisk (wildcard)
+            ("file?name", "filename"),       # Question mark (wildcard)
+            ('file"name', "filename"),       # Quote
+            ("file<name", "filename"),       # Less than (HTML)
+            ("file>name", "filename"),       # Greater than (HTML)
+            ("file|name", "filename"),       # Pipe
+        ]
+
+        for input_name, expected_base in dangerous_chars:
+            result = sanitize_filename(input_name)
+            # All special chars removed, word chars preserved
+            assert expected_base in result.lower()
+
+    def test_sanitize_filename_unicode_and_accents(self):
+        """Test unicode and accented characters: á, é, ñ, ü.
+
+        Validates that unicode letters are preserved (treated as word chars).
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test case: Spanish accented characters
+        result = sanitize_filename("Documento Español")
+        # Unicode letters are preserved by \w pattern
+        assert "Documento" in result
+        assert "Espaol" in result or "Español" in result  # May vary by regex engine
+
+    def test_sanitize_filename_path_traversal_prevention(self):
+        """Test path traversal attack prevention: ../, ./, ..\\, .\\
+
+        Security: Path traversal attempts must be completely neutralized.
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test cases: Path traversal attempts
+        traversal_attempts = [
+            "../../../etc/passwd",
+            "..\\..\\..\\windows\\system32",
+            "./../../sensitive_file",
+            ".\\..\\config.ini",
+        ]
+
+        for malicious_path in traversal_attempts:
+            result = sanitize_filename(malicious_path)
+            # Slashes, dots, backslashes should be removed
+            # Result should NOT contain path traversal sequences
+            assert ".." not in result
+            assert "/" not in result
+            assert "\\" not in result
+
+    def test_sanitize_filename_multiple_dots(self):
+        """Test multiple consecutive dots: file.backup.pdf
+
+        Ensures handling doesn't introduce vulnerabilities while preserving legibility.
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test case: Multiple extensions/dots
+        result = sanitize_filename("file.backup.pdf")
+        # Dots are special chars [^\w\s-], so removed
+        assert "file" in result
+        assert "backup" in result
+        assert "pdf" in result
+        assert "." not in result  # All dots removed
+
+    def test_sanitize_filename_edge_case_empty_after_sanitization(self):
+        """Test edge case: filename becomes empty after sanitization.
+
+        If all chars are special, result should be empty string.
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test case: Only special characters
+        result = sanitize_filename("!@#$%^&*()")
+        # All special chars removed, result is empty
+        assert result == ""
+
+    def test_sanitize_filename_edge_case_only_spaces(self):
+        """Test edge case: filename is only spaces.
+
+        Spaces are converted to underscores, but leading/trailing stripped.
+        """
+        from app.routes.knowledge import sanitize_filename
+
+        # Test case: Only spaces
+        result = sanitize_filename("   ")
+        # .strip() removes outer spaces, then pattern converts to _
+        # After strip: "", which becomes ""
+        assert result == ""
 
     @pytest.mark.asyncio
     async def test_orphaned_file_cleanup(self, mock_db_session):

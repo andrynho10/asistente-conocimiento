@@ -135,3 +135,7 @@ ipython_config.py
 
 # Alembic
 alembic/versions/__pycache__/
+docs/test-repair-summary-2025-11-13.md
+docs/test-technical-debt-remaining.md
+.gitignore
+docs/test-analysis-34-failing-tests.md

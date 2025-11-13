@@ -323,7 +323,11 @@ class TestDocumentEndpoints:
         )
 
         assert response.status_code == 400
-        assert "INVALID_PARAMETERS" in response.json()["code"]
+        response_data = response.json()
+        assert "detail" in response_data
+        assert response_data["detail"]["code"] == "INVALID_PARAMETERS"
+        assert "invalid_field" in response_data["detail"]["message"]
+        assert "file_size_bytes" in response_data["detail"]["message"] or "title" in response_data["detail"]["message"]
 
     def test_get_document_success(self, auth_headers_admin, sample_documents):
         """AC3: Test obtener documento existente"""
@@ -340,7 +344,9 @@ class TestDocumentEndpoints:
         response = client.get("/api/knowledge/documents/999", headers=auth_headers_admin)
 
         assert response.status_code == 404
-        assert "DOCUMENT_NOT_FOUND" in response.json()["code"]
+        response_data = response.json()
+        assert "detail" in response_data
+        assert response_data["detail"]["code"] == "DOCUMENT_NOT_FOUND"
 
     def test_get_categories_success(self, auth_headers_admin, sample_documents):
         """AC4: Test listado de categorías"""

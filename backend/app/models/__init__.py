@@ -11,7 +11,9 @@ from .document import (
     DocumentCategory,
     DocumentCategoryCreate,
     DocumentCategoryRead,
-    DocumentCategoryUpdate
+    DocumentCategoryUpdate,
+    SortByEnum,
+    OrderEnum
 )
 from .audit import (
     AuditLog,
@@ -38,6 +40,8 @@ __all__ = [
     "DocumentCategoryCreate",
     "DocumentCategoryRead",
     "DocumentCategoryUpdate",
+    "SortByEnum",
+    "OrderEnum",
 
     # Audit models
     "AuditLog",

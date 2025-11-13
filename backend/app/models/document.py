@@ -3,12 +3,26 @@ Modelo de documento para el sistema de asistente de conocimiento
 """
 
 from datetime import datetime, timezone
+from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .user import User
+
+
+class SortByEnum(str, Enum):
+    """Enum para campos permitidos en ordenamiento de documentos"""
+    UPLOAD_DATE = "upload_date"
+    TITLE = "title"
+    FILE_SIZE_BYTES = "file_size_bytes"
+
+
+class OrderEnum(str, Enum):
+    """Enum para dirección de ordenamiento"""
+    ASC = "asc"
+    DESC = "desc"
 
 
 class DocumentCategory(SQLModel, table=True):
@@ -154,13 +168,13 @@ class DocumentListRequest(SQLModel):
     category: str | None = Field(default=None, description="Filtrar por categoría")
     limit: int = Field(default=20, ge=1, le=100, description="Límite de resultados")
     offset: int = Field(default=0, ge=0, description="Offset para paginación")
-    sort_by: str = Field(
-        default="upload_date",
-        description="Campo de ordenamiento (upload_date, title, file_size_bytes)"
+    sort_by: SortByEnum = Field(
+        default=SortByEnum.UPLOAD_DATE,
+        description="Campo de ordenamiento permitido"
     )
-    order: str = Field(
-        default="desc",
-        description="Dirección de ordenamiento (asc, desc)"
+    order: OrderEnum = Field(
+        default=OrderEnum.DESC,
+        description="Dirección de ordenamiento"
     )
 
 

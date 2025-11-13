@@ -343,7 +343,7 @@ async def list_documents(
     order: str = "desc",
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
-):
+) -> list[DocumentResponse]:
     """
     Endpoint para listar documentos con filtros, paginación y ordenamiento.
 
@@ -354,17 +354,20 @@ async def list_documents(
     AC2: Filtros de Búsqueda
     - category: filtrar por categoría específica
     - limit, offset: paginación
-    - sort_by: upload_date, title, file_size_bytes
-    - order: asc, desc
+    - sort_by: campo de ordenamiento (upload_date, title, file_size_bytes)
+    - order: dirección de ordenamiento (asc, desc)
 
-    AC5: Ordenamiento soporta upload_date, title, file_size_bytes
+    AC3: Validación de Sort Field
+    - Valida que sort_by sea uno de: [upload_date, title, file_size_bytes]
+    - Retorna HTTP 400 si sort_by es inválido
+    - Mensaje de error incluye valores válidos permitidos
 
     Args:
         category: Filtro opcional por categoría
         limit: Límite de resultados (default: 20, max: 100)
         offset: Offset para paginación (default: 0)
-        sort_by: Campo de ordenamiento (upload_date, title, file_size_bytes)
-        order: Dirección de ordenamiento (asc, desc)
+        sort_by: Campo de ordenamiento - valores válidos: [upload_date, title, file_size_bytes] (default: upload_date)
+        order: Dirección de ordenamiento - valores válidos: [asc, desc] (default: desc)
         db: Sesión de base de datos
         current_user: Usuario autenticado (admin o user)
 
@@ -372,10 +375,26 @@ async def list_documents(
         list[DocumentResponse]: Lista de documentos con uploaded_by como username
 
     Raises:
-        HTTPException 400: Si los parámetros de ordenamiento son inválidos
+        HTTPException 400: Si los parámetros de sort_by u order son inválidos
         HTTPException 500: Error interno del servidor
     """
     try:
+        # Validar sort_by y order valores permitidos
+        allowed_sort_fields = {"upload_date", "title", "file_size_bytes"}
+        allowed_orders = {"asc", "desc"}
+
+        if sort_by not in allowed_sort_fields:
+            raise ValueError(
+                f"Campo de ordenamiento no permitido: {sort_by}. "
+                f"Opciones válidas: {', '.join(sorted(allowed_sort_fields))}"
+            )
+
+        if order not in allowed_orders:
+            raise ValueError(
+                f"Dirección de ordenamiento no permitida: {order}. "
+                f"Opciones válidas: {', '.join(sorted(allowed_orders))}"
+            )
+
         # AC6: Usuario 'user' puede listar documentos (solo lectura)
         document_list_request = DocumentListRequest(
             category=category,
@@ -390,8 +409,8 @@ async def list_documents(
             category=document_list_request.category,
             limit=document_list_request.limit,
             offset=document_list_request.offset,
-            sort_by=document_list_request.sort_by,
-            order=document_list_request.order
+            sort_by=document_list_request.sort_by.value,
+            order=document_list_request.order.value
         )
 
         return documents
