@@ -22,6 +22,13 @@ from .audit import (
     AuditAction,
     AuditResourceType
 )
+from .generated_content import (
+    GeneratedContent,
+    GeneratedContentCreate,
+    GeneratedContentRead,
+    GeneratedContentUpdate,
+    ContentType
+)
 
 __all__ = [
     # User models
@@ -49,4 +56,11 @@ __all__ = [
     "AuditLogRead",
     "AuditAction",
     "AuditResourceType",
+
+    # Generated Content models
+    "GeneratedContent",
+    "GeneratedContentCreate",
+    "GeneratedContentRead",
+    "GeneratedContentUpdate",
+    "ContentType",
 ]

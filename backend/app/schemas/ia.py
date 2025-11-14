@@ -688,3 +688,96 @@ class ErrorResponse(BaseModel):
         default_factory=datetime.utcnow,
         description="Error timestamp"
     )
+
+
+# Story 4.1: Summary Generation Schemas
+
+class SummaryGenerationRequest(BaseModel):
+    """
+    Request model for document summary generation endpoint (Story 4.1, AC1, AC2).
+
+    Specifies which document to summarize and desired summary length.
+    """
+    document_id: int = Field(
+        ...,
+        description="ID of the document to summarize",
+        ge=1,
+        examples=[1, 42]
+    )
+    summary_length: str = Field(
+        ...,
+        description="Desired summary length: short (150 words), medium (300 words), or long (500 words)",
+        pattern="^(short|medium|long)$",
+        examples=["short", "medium", "long"]
+    )
+
+    @field_validator('summary_length')
+    @classmethod
+    def validate_summary_length(cls, v):
+        """Validate summary_length is one of allowed values."""
+        if v not in {"short", "medium", "long"}:
+            raise ValueError("summary_length must be 'short', 'medium', or 'long'")
+        return v
+
+
+class SummaryGenerationResponse(BaseModel):
+    """
+    Response model for document summary generation endpoint (Story 4.1, AC3).
+
+    Contains the generated summary along with metadata about generation.
+    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "document_id": 1,
+                    "document_title": "Política de Vacaciones Anuales",
+                    "summary": "La compañía otorga 15 días hábiles de vacaciones anuales a todos los empleados...\n*Resumen generado automáticamente por IA. Revisa el documento completo para detalles precisos.*",
+                    "summary_length": "medium",
+                    "word_count": 289,
+                    "generated_at": "2025-11-14T10:30:00Z",
+                    "generation_time_ms": 2345.5
+                }
+            ]
+        }
+    )
+
+    document_id: int = Field(
+        ...,
+        description="ID of the summarized document",
+        ge=1,
+        examples=[1]
+    )
+    document_title: str = Field(
+        ...,
+        description="Title of the document",
+        examples=["Política de Vacaciones Anuales"]
+    )
+    summary: str = Field(
+        ...,
+        description="Generated summary text with disclaimer appended (AC7)",
+        examples=["La compañía otorga 15 días hábiles de vacaciones..."]
+    )
+    summary_length: str = Field(
+        ...,
+        description="Requested summary length",
+        pattern="^(short|medium|long)$",
+        examples=["medium"]
+    )
+    word_count: int = Field(
+        ...,
+        description="Word count of the generated summary",
+        ge=0,
+        examples=[289]
+    )
+    generated_at: datetime = Field(
+        ...,
+        description="Timestamp when summary was generated",
+        examples=["2025-11-14T10:30:00Z"]
+    )
+    generation_time_ms: float = Field(
+        ...,
+        description="Time taken to generate summary in milliseconds",
+        ge=0,
+        examples=[2345.5]
+    )

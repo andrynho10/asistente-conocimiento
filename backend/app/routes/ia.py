@@ -27,7 +27,9 @@ from app.schemas.ia import (
     QueryRequest,
     QueryResponse,
     MetricsResponse,
-    ErrorResponse
+    ErrorResponse,
+    SummaryGenerationRequest,
+    SummaryGenerationResponse
 )
 
 # Import admin dependency for endpoint protection
@@ -973,4 +975,203 @@ async def get_metrics(
         raise HTTPException(
             status_code=500,
             detail="Failed to calculate metrics. Please try again later."
+        )
+
+
+# Story 4.1: Document Summary Generation Endpoint
+
+@router.post(
+    "/generate/summary",
+    response_model=SummaryGenerationResponse,
+    summary="Generate Document Summary",
+    description="""Generate an automatic summary of any document in the repository (Story 4.1, AC1-AC13).
+
+Provides quick understanding of key points without reading full document.
+
+Supports three summary lengths:
+- **short**: ~150 words
+- **medium**: ~300 words
+- **long**: ~500 words
+
+Includes 24-hour intelligent caching to improve performance on repeated requests.
+""",
+    responses={
+        200: {
+            "description": "Summary generated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "document_id": 1,
+                        "document_title": "Política de Vacaciones Anuales",
+                        "summary": "La compañía otorga 15 días hábiles de vacaciones anuales a todos los empleados...\n*Resumen generado automáticamente por IA. Revisa el documento completo para detalles precisos.*",
+                        "summary_length": "medium",
+                        "word_count": 289,
+                        "generated_at": "2025-11-14T10:30:00Z",
+                        "generation_time_ms": 2345.5
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "Invalid request or document issue",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "El documento es demasiado corto para resumir. Léelo directamente."
+                    }
+                }
+            }
+        },
+        401: {"description": "Unauthenticated - authentication required"},
+        404: {
+            "description": "Document not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Documento no encontrado"}
+                }
+            }
+        },
+        429: {"description": "Rate limit exceeded"},
+        503: {
+            "description": "AI service unavailable",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Servicio de IA no disponible"}
+                }
+            }
+        }
+    }
+)
+async def generate_summary(
+    request: Request,
+    summary_request: SummaryGenerationRequest,
+    db=Depends(get_session),
+    current_user=Depends(get_current_user)
+):
+    """
+    Generate an automatic summary of a document.
+
+    This endpoint implements the complete summary generation pipeline (Story 4.1):
+
+    **AC1-AC3**: Endpoint with Bearer token authentication, request/response validation
+    **AC4-AC6**: LLM-based generation with configurable length and parameters
+    **AC7**: Appends AI disclaimer to all summaries
+    **AC8-AC11**: Comprehensive error handling for all failure cases
+    **AC12**: Intelligent 24-hour caching of summaries
+    **AC13**: Automatic document truncation for very large documents
+
+    Rate limiting: 10 summary requests per 60 seconds per user
+    """
+    from app.services.summary_service import SummaryService
+
+    start_time = time.time()
+
+    try:
+        # Rate limiting (10 summaries per 60 seconds per user)
+        user_rate_key = f"rate_limit:summary:{current_user.id}"
+        now = time.time()
+
+        if user_rate_key not in rate_limits:
+            rate_limits[user_rate_key] = {"count": 0, "window_start": now}
+
+        # Reset window if expired (60 seconds)
+        if now - rate_limits[user_rate_key]["window_start"] > 60:
+            rate_limits[user_rate_key] = {"count": 0, "window_start": now}
+
+        # Check limit
+        if rate_limits[user_rate_key]["count"] >= 10:
+            logger.warning(
+                f"Rate limit exceeded for summary generation - user {current_user.id}: "
+                f"{rate_limits[user_rate_key]['count']} requests in current window"
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded: 10 summary requests per 60 seconds per user"
+            )
+
+        # Increment counter
+        rate_limits[user_rate_key]["count"] += 1
+
+        logger.info(
+            f"Summary request from user {current_user.id}: "
+            f"document_id={summary_request.document_id}, "
+            f"summary_length={summary_request.summary_length}"
+        )
+
+        # Check if LLM service is available
+        llm_svc = OllamaLLMService()
+        if not await llm_svc.health_check_async():
+            logger.warning("Ollama service not available for summary generation")
+            raise HTTPException(
+                status_code=503,
+                detail="Servicio de IA no disponible"
+            )
+
+        # Generate summary using SummaryService
+        summary_service = SummaryService(db)
+        result = await summary_service.generate_summary(
+            document_id=summary_request.document_id,
+            summary_length=summary_request.summary_length,
+            user_id=current_user.id
+        )
+
+        # Build response
+        response = SummaryGenerationResponse(
+            document_id=result["document_id"],
+            document_title=result["document_title"],
+            summary=result["summary"],
+            summary_length=result["summary_length"],
+            word_count=result["word_count"],
+            generated_at=result["generated_at"],
+            generation_time_ms=result["generation_time_ms"]
+        )
+
+        total_time = (time.time() - start_time) * 1000
+
+        logger.info(
+            f"Summary generated successfully for document {summary_request.document_id} "
+            f"(user: {current_user.id}, length: {summary_request.summary_length}, "
+            f"time: {total_time:.0f}ms)"
+        )
+
+        return response
+
+    except ValueError as e:
+        # Input validation or document issues (AC8-AC10, AC13)
+        error_msg = str(e)
+
+        # Map to appropriate HTTP status codes
+        if "no encontrado" in error_msg.lower():
+            status_code = 404
+            logger.warning(f"Document not found: {error_msg}")
+        else:
+            status_code = 400
+            logger.warning(f"Invalid summary request: {error_msg}")
+
+        raise HTTPException(status_code=status_code, detail=error_msg)
+
+    except ConnectionError as e:
+        # LLM service unavailable (AC11)
+        logger.error(f"LLM service error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de IA no disponible"
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+
+    except Exception as e:
+        total_time = (time.time() - start_time) * 1000
+
+        error_msg = f"Summary generation failed: {str(e)}"
+        logger.error(
+            f"Unexpected error during summary generation for user {current_user.id}: "
+            f"{error_msg} (time: {total_time:.0f}ms)"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Summary generation failed. Please try again later."
         )

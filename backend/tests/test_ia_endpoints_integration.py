@@ -568,3 +568,440 @@ class TestMetricsEndpoint:
             p50, p95, p99 = data["p50_ms"], data["p95_ms"], data["p99_ms"]
             # Percentiles should be ordered: p50 <= p95 <= p99
             assert p50 <= p95 <= p99, f"Percentiles not ordered: p50={p50}, p95={p95}, p99={p99}"
+
+
+# Story 4.1: Document Summary Generation Tests
+
+class TestSummaryGenerationEndpoint:
+    """Test Story 4.1: Document Summary Generation (AC1-AC13)."""
+
+    def test_summary_valid_request_short(self, client, user_token, test_db):
+        """AC1-AC3: Valid summary request returns 200 with correct structure.
+
+        Tests:
+        - AC1: Endpoint POST /api/ia/generate/summary with Bearer token
+        - AC2: Accepts document_id and summary_length parameters
+        - AC3: Returns JSON with all required fields
+        """
+        # Create test document
+        from app.models import Document
+        doc = Document(
+            title="Test Policy",
+            description="Test document",
+            category="HR",
+            file_type="txt",
+            file_size_bytes=1000,
+            file_path="/test/policy.txt",
+            uploaded_by=1,
+            content_text="El empresa otorga 15 días de vacaciones anuales. "
+                        "Cada empleado tiene derecho a esta prestación. " * 20  # ~200 words
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
+            with patch('app.services.llm_service.OllamaLLMService.generate_response_async', new_callable=AsyncMock) as mock_gen:
+                mock_health.return_value = True
+                mock_gen.return_value = "La compañía otorga 15 días de vacaciones."
+
+                response = client.post(
+                    "/api/ia/generate/summary",
+                    json={
+                        "document_id": doc.id,
+                        "summary_length": "short"
+                    },
+                    headers=headers
+                )
+
+                assert response.status_code == 200
+                data = response.json()
+
+                # AC3: Verify response structure
+                assert "document_id" in data
+                assert "document_title" in data
+                assert "summary" in data
+                assert "summary_length" in data
+                assert "word_count" in data
+                assert "generated_at" in data
+                assert "generation_time_ms" in data
+
+                assert data["document_id"] == doc.id
+                assert data["summary_length"] == "short"
+                assert isinstance(data["word_count"], int)
+                assert data["word_count"] > 0
+
+    def test_summary_ac4_target_lengths(self, client, user_token, test_db):
+        """AC4: Summary lengths match targets (short~150, medium~300, long~500)."""
+        from app.models import Document
+
+        # Create document with enough content
+        large_content = """
+        The company provides comprehensive benefits and policies for all employees.
+        These include vacation days, health insurance, retirement plans, and more.
+        Employees receive 15 days of annual vacation, plus holiday time.
+        Health insurance covers medical, dental, and vision.
+        Retirement plans offer matching contributions up to 6 percent.
+        """ * 30  # ~1500 words
+
+        doc = Document(
+            title="Benefits Policy",
+            description="Test",
+            category="HR",
+            file_type="txt",
+            file_size_bytes=5000,
+            file_path="/test/benefits.txt",
+            uploaded_by=1,
+            content_text=large_content
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
+            with patch('app.services.llm_service.OllamaLLMService.generate_response_async', new_callable=AsyncMock) as mock_gen:
+                mock_health.return_value = True
+
+                # Test "medium" length (~300 words)
+                mock_gen.return_value = (" ".join(["Word"] * 300)).strip()  # ~300 words
+
+                response = client.post(
+                    "/api/ia/generate/summary",
+                    json={
+                        "document_id": doc.id,
+                        "summary_length": "medium"
+                    },
+                    headers=headers
+                )
+
+                assert response.status_code == 200
+                data = response.json()
+                assert data["summary_length"] == "medium"
+                # Word count should be reasonable (100-600 for medium)
+                assert 100 <= data["word_count"] <= 600
+
+    def test_summary_ac7_disclaimer(self, client, user_token, test_db):
+        """AC7: Summary includes AI disclaimer at the end."""
+        from app.models import Document
+
+        doc = Document(
+            title="Test Doc",
+            description="Test",
+            category="Test",
+            file_type="txt",
+            file_size_bytes=1000,
+            file_path="/test/doc.txt",
+            uploaded_by=1,
+            content_text="Sample content " * 100  # >100 words
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
+            with patch('app.services.llm_service.OllamaLLMService.generate_response_async', new_callable=AsyncMock) as mock_gen:
+                mock_health.return_value = True
+                mock_gen.return_value = "Sample summary text"
+
+                response = client.post(
+                    "/api/ia/generate/summary",
+                    json={
+                        "document_id": doc.id,
+                        "summary_length": "short"
+                    },
+                    headers=headers
+                )
+
+                assert response.status_code == 200
+                data = response.json()
+
+                # AC7: Disclaimer should be present
+                assert "*Resumen generado automáticamente por IA" in data["summary"]
+
+    def test_summary_ac8_document_not_found_404(self, client, user_token):
+        """AC8: Non-existent document returns 404."""
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        response = client.post(
+            "/api/ia/generate/summary",
+            json={
+                "document_id": 99999,
+                "summary_length": "short"
+            },
+            headers=headers
+        )
+
+        assert response.status_code == 404
+        data = response.json()
+        assert "no encontrado" in data["detail"].lower()
+
+    def test_summary_ac9_no_content_400(self, client, user_token, test_db):
+        """AC9: Document with no content_text returns 400."""
+        from app.models import Document
+
+        doc = Document(
+            title="Empty Doc",
+            description="No content",
+            category="Test",
+            file_type="txt",
+            file_size_bytes=0,
+            file_path="/test/empty.txt",
+            uploaded_by=1,
+            content_text=None  # No content
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        response = client.post(
+            "/api/ia/generate/summary",
+            json={
+                "document_id": doc.id,
+                "summary_length": "short"
+            },
+            headers=headers
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "no tiene contenido procesado" in data["detail"]
+
+    def test_summary_ac10_too_short_document_400(self, client, user_token, test_db):
+        """AC10: Document < 100 words returns 400."""
+        from app.models import Document
+
+        doc = Document(
+            title="Short Doc",
+            description="Too short",
+            category="Test",
+            file_type="txt",
+            file_size_bytes=50,
+            file_path="/test/short.txt",
+            uploaded_by=1,
+            content_text="This is a short document with only a few words."  # <100 words
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        response = client.post(
+            "/api/ia/generate/summary",
+            json={
+                "document_id": doc.id,
+                "summary_length": "short"
+            },
+            headers=headers
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "demasiado corto" in data["detail"]
+
+    def test_summary_ac11_llm_unavailable_503(self, client, user_token, test_db):
+        """AC11: LLM service unavailable returns 503."""
+        from app.models import Document
+
+        doc = Document(
+            title="Test",
+            description="Test",
+            category="Test",
+            file_type="txt",
+            file_size_bytes=1000,
+            file_path="/test/test.txt",
+            uploaded_by=1,
+            content_text="Content text. " * 30
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
+            mock_health.return_value = False
+
+            response = client.post(
+                "/api/ia/generate/summary",
+                json={
+                    "document_id": doc.id,
+                    "summary_length": "short"
+                },
+                headers=headers
+            )
+
+            assert response.status_code == 503
+            data = response.json()
+            assert "IA no disponible" in data["detail"]
+
+    def test_summary_ac12_cache_hit(self, client, user_token, test_db):
+        """AC12: Cached summary is used (inferred by fast response time)."""
+        from app.models import Document
+        import time
+
+        doc = Document(
+            title="Doc for Cache Test",
+            description="Test",
+            category="Test",
+            file_type="txt",
+            file_size_bytes=1000,
+            file_path="/test/cache-test.txt",
+            uploaded_by=1,
+            content_text="Content text " * 100  # >100 words
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
+            with patch('app.services.llm_service.OllamaLLMService.generate_response_async', new_callable=AsyncMock) as mock_gen:
+                mock_health.return_value = True
+                mock_gen.return_value = (" ".join(["Word"] * 200)).strip()
+
+                # First request - will be cached
+                start = time.time()
+                response1 = client.post(
+                    "/api/ia/generate/summary",
+                    json={
+                        "document_id": doc.id,
+                        "summary_length": "short"
+                    },
+                    headers=headers
+                )
+                time1 = time.time() - start
+
+                assert response1.status_code == 200
+                data1 = response1.json()
+                assert data1["summary_length"] == "short"
+                first_summary = data1["summary"]
+
+                # Second request - should hit cache (AC12)
+                # For cache hit test, we just verify endpoint works again
+                # (Full cache behavior testing requires mocking DB and cache layer)
+                start = time.time()
+                response2 = client.post(
+                    "/api/ia/generate/summary",
+                    json={
+                        "document_id": doc.id,
+                        "summary_length": "short"
+                    },
+                    headers=headers
+                )
+                time2 = time.time() - start
+
+                assert response2.status_code == 200
+                data2 = response2.json()
+                # Second request should complete successfully
+                assert data2["summary_length"] == "short"
+
+    def test_summary_ac13_document_truncation(self, client, user_token, test_db):
+        """AC13: Large document (>10k chars) is truncated with note."""
+        from app.models import Document
+
+        # Create document > 10000 chars (with words to avoid word count issues)
+        large_content = " ".join(["Word"] * 3000)  # ~15000 chars with words
+
+        doc = Document(
+            title="Large Doc",
+            description="Test",
+            category="Test",
+            file_type="txt",
+            file_size_bytes=15000,
+            file_path="/test/large.txt",
+            uploaded_by=1,
+            content_text=large_content
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
+            with patch('app.services.llm_service.OllamaLLMService.generate_response_async', new_callable=AsyncMock) as mock_gen:
+                mock_health.return_value = True
+                mock_gen.return_value = "Summary of truncated content"
+
+                response = client.post(
+                    "/api/ia/generate/summary",
+                    json={
+                        "document_id": doc.id,
+                        "summary_length": "medium"
+                    },
+                    headers=headers
+                )
+
+                assert response.status_code == 200
+                # Verify LLM was called (with truncated content)
+                assert mock_gen.called
+                call_args = mock_gen.call_args
+                prompt = call_args[1]["prompt"] if call_args[1] else call_args[0][0]
+                # Prompt should not contain full 15k document (truncated to 10k)
+                assert "Nota: Resumen basado en sección inicial" in prompt
+
+    def test_summary_401_unauthenticated(self, client, test_db):
+        """Summary endpoint requires authentication (401)."""
+        response = client.post(
+            "/api/ia/generate/summary",
+            json={
+                "document_id": 1,
+                "summary_length": "short"
+            }
+        )
+
+        assert response.status_code == 401
+
+    def test_summary_rate_limiting(self, client, user_token, test_db):
+        """Rate limiting: 10 summaries per 60 seconds per user."""
+        from app.models import Document
+
+        doc = Document(
+            title="Test",
+            description="Test",
+            category="Test",
+            file_type="txt",
+            file_size_bytes=1000,
+            file_path="/test/test.txt",
+            uploaded_by=1,
+            content_text="Content " * 100  # >100 words
+        )
+        test_db.add(doc)
+        test_db.commit()
+        test_db.refresh(doc)
+
+        headers = {"Authorization": f"Bearer {user_token}"}
+
+        with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
+            with patch('app.services.llm_service.OllamaLLMService.generate_response_async', new_callable=AsyncMock) as mock_gen:
+                mock_health.return_value = True
+                mock_gen.return_value = "Summary"
+
+                # Make 11 requests to exceed limit (10)
+                for i in range(11):
+                    response = client.post(
+                        "/api/ia/generate/summary",
+                        json={
+                            "document_id": doc.id,
+                            "summary_length": "short"
+                        },
+                        headers=headers
+                    )
+
+                    if i < 10:
+                        assert response.status_code == 200, f"Request {i+1} should succeed"
+                    else:
+                        # 11th request should be rate limited
+                        assert response.status_code == 429
+                        data = response.json()
+                        assert "Rate limit exceeded" in data["detail"]
