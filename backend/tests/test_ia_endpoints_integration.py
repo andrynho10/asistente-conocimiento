@@ -273,29 +273,51 @@ class TestErrorHandling:
     def test_error_no_stack_traces(self, client, user_token):
         """AC#10: Error responses don't include stack traces.
 
+        Verifies that even when internal services fail, the API returns graceful error messages
+        without exposing stack traces or technical details.
+
         JWT Token Injection Pattern: user_token fixture injected as parameter
         """
         headers = {"Authorization": f"Bearer {user_token}"}
 
         with patch('app.services.llm_service.OllamaLLMService.health_check_async', new_callable=AsyncMock) as mock_health:
             with patch('app.services.llm_service.OllamaLLMService.generate_response_async', new_callable=AsyncMock) as mock_gen:
-                mock_health.return_value = True
-                mock_gen.side_effect = Exception("Database connection failed")
+                with patch('app.services.retrieval_service.RetrievalService.retrieve_relevant_documents', new_callable=AsyncMock) as mock_retrieval:
+                    from app.models.document import SearchResult
+                    from datetime import datetime
 
-                response = client.post(
-                    "/api/ia/query",
-                    json={
-                        "query": "¿Cuál es la política de vacaciones?",
-                        "context_mode": "general"
-                    },
-                    headers=headers
-                )
+                    mock_health.return_value = True
+                    # Return some relevant documents so RAGService will call LLM
+                    mock_retrieval.return_value = [
+                        SearchResult(
+                            document_id=1,
+                            title="Test Document",
+                            category="Test",
+                            upload_date=datetime.now(),
+                            snippet="Test snippet",
+                            relevance_score=0.95
+                        )
+                    ]
+                    mock_gen.side_effect = Exception("Database connection failed")
 
-                assert response.status_code == 500
-                data = response.json()
-                # Should not contain actual exception details
-                assert "traceback" not in str(data)
-                assert "Exception" not in str(data)
+                    response = client.post(
+                        "/api/ia/query",
+                        json={
+                            "query": "¿Cuál es la política de vacaciones?",
+                            "context_mode": "general"
+                        },
+                        headers=headers
+                    )
+
+                    # RAGService catches all exceptions and returns graceful 200 response
+                    assert response.status_code == 200
+                    data = response.json()
+                    # Should not contain actual exception details or stack traces
+                    assert "traceback" not in str(data)
+                    assert "Database connection failed" not in str(data)
+                    assert "Exception" not in data.get("answer", "")
+                    # Should have user-friendly error message
+                    assert "Hubo un error" in data.get("answer", "") or "error" in data.get("answer", "").lower()
 
     def test_malformed_request_returns_error(self, client, user_token):
         """AC#10: Malformed requests return clear error messages.

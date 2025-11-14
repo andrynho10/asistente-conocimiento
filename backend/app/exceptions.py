@@ -142,3 +142,37 @@ class RetrievalServiceError(IAServiceException):
             http_status_code=500,
             detail=detail or "Failed to retrieve documents"
         )
+
+
+class RetrievalTimeoutError(IAServiceException):
+    """
+    AC#11: Retrieval service timeout handling.
+
+    Raised when:
+    - Document search exceeds timeout threshold
+    - FTS5 query execution timeout
+    """
+    def __init__(self, message: str, detail: Optional[str] = None):
+        super().__init__(
+            message=message,
+            error_code="RETRIEVAL_TIMEOUT",
+            http_status_code=503,
+            detail=detail or "Document search timed out. Please try a simpler query."
+        )
+
+
+class DatabaseTimeoutError(IAServiceException):
+    """
+    AC#11: Database operation timeout handling.
+
+    Raised when:
+    - Database query exceeds timeout threshold
+    - Database operation takes too long
+    """
+    def __init__(self, message: str, detail: Optional[str] = None):
+        super().__init__(
+            message=message,
+            error_code="DATABASE_TIMEOUT",
+            http_status_code=503,
+            detail=detail or "Database operation timed out. Please try again later."
+        )

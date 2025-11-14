@@ -3,11 +3,14 @@ Servicio de Retrieval para búsqueda inteligente de documentos relevantes.
 
 Proporciona recuperación optimizada de documentos para consultas IA,
 con expansión de consultas, normalización de texto y ranking avanzado.
+
+AC#11: Timeout handling para operaciones de BD
 """
 
 import logging
 import json
 import re
+import asyncio
 import unicodedata
 from datetime import datetime
 from typing import List, Optional, Set
@@ -15,6 +18,7 @@ from sqlmodel import Session, text
 
 from app.models.document import SearchResult
 from app.services.cache_service import CacheService
+from app.core.config import settings
 
 # Configurar logging estructurado
 logger = logging.getLogger(__name__)
@@ -166,9 +170,32 @@ class RetrievalService:
                 LIMIT :limit
             """)
 
-            # Ejecutar query
-            result = db.exec(sql_query.bindparams(query=optimized_query, limit=top_k))
-            rows = result.fetchall()
+            # Ejecutar query con timeout (AC#11)
+            retrieval_timeout_ms = settings.retrieval_timeout_ms
+            retrieval_timeout_s = retrieval_timeout_ms / 1000.0
+
+            try:
+                # Envolver la operación de BD en asyncio.wait_for para timeout
+                loop = asyncio.get_event_loop()
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda: db.exec(sql_query.bindparams(query=optimized_query, limit=top_k))
+                    ),
+                    timeout=retrieval_timeout_s
+                )
+                rows = result.fetchall()
+            except asyncio.TimeoutError:
+                logger.error(
+                    json.dumps({
+                        "event": "retrieval_timeout",
+                        "query": query,
+                        "optimized_query": optimized_query,
+                        "timeout_ms": retrieval_timeout_ms,
+                        "top_k": top_k
+                    })
+                )
+                raise TimeoutError(f"Retrieval timeout after {retrieval_timeout_ms}ms")
 
             # Normalizar scores y filtrar por umbral mínimo
             results = []
@@ -265,6 +292,9 @@ class RetrievalService:
 
             return results
 
+        except TimeoutError:
+            # Timeout ya fue loguado en el bloque anterior, re-raise para propagación
+            raise
         except Exception as e:
             # Log error estructurado
             logger.error(

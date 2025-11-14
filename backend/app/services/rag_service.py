@@ -24,6 +24,7 @@ from app.services.retrieval_service import RetrievalService
 from app.services.llm_service import OllamaLLMService
 from app.services.cache_service import CacheService
 from app.models.document import SearchResult
+from app.exceptions import RetrievalTimeoutError, DatabaseTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -142,12 +143,21 @@ class RAGService:
                 "top_k": top_k
             }))
 
-            # Call RetrievalService to get relevant documents
-            search_results: List[SearchResult] = await RetrievalService.retrieve_relevant_documents(
-                query=user_query,
-                top_k=min(top_k, 5),  # Cap at 5 to maintain context limit
-                db=session
-            )
+            # Call RetrievalService to get relevant documents (AC#11: with timeout)
+            try:
+                search_results: List[SearchResult] = await RetrievalService.retrieve_relevant_documents(
+                    query=user_query,
+                    top_k=min(top_k, 5),  # Cap at 5 to maintain context limit
+                    db=session
+                )
+            except TimeoutError as e:
+                logger.error(json.dumps({
+                    "event": "rag_retrieval_timeout",
+                    "user_id": user_id,
+                    "query": user_query,
+                    "error": str(e)
+                }))
+                raise RetrievalTimeoutError(f"Document retrieval timeout: {str(e)}")
 
             phase1_time = (time.perf_counter() - phase1_start) * 1000  # Convert to milliseconds
             metrics["phase_times"]["retrieval"] = phase1_time
@@ -379,6 +389,26 @@ class RAGService:
             }))
 
             return response
+
+        except (RetrievalTimeoutError, DatabaseTimeoutError) as e:
+            # Handle retrieval or database timeout (AC#11)
+            logger.error(json.dumps({
+                "event": "rag_timeout_error",
+                "user_id": user_id,
+                "error_type": type(e).__name__,
+                "error": str(e)
+            }))
+
+            total_time = (time.perf_counter() - pipeline_start) * 1000
+            return {
+                "answer": f"La búsqueda de documentos tardó demasiado. Por favor, intenta con una consulta más específica. {RAG_DISCLAIMER}",
+                "sources": [],
+                "response_time_ms": round(total_time, 2),
+                "retrieval_time_ms": round(metrics.get("retrieval_time_ms", 0), 2),
+                "llm_time_ms": round(metrics.get("llm_time_ms", 0), 2),
+                "cache_hit": False,
+                "documents_retrieved": 0
+            }
 
         except asyncio.TimeoutError:
             # Handle LLM timeout gracefully (10s standard)
