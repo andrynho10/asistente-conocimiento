@@ -276,6 +276,7 @@ class TestQueryResponseSchema:
 
     def test_query_response_timestamp_default(self):
         """AC#5: timestamp uses ISO format with default to current time."""
+        from datetime import timezone
         response = QueryResponse(
             query="Pregunta válida",
             answer="Respuesta válida",
@@ -285,7 +286,7 @@ class TestQueryResponseSchema:
         )
         assert isinstance(response.timestamp, datetime)
         # Should be close to now (within 1 second)
-        time_diff = abs((datetime.utcnow() - response.timestamp).total_seconds())
+        time_diff = abs((datetime.now(timezone.utc) - response.timestamp).total_seconds())
         assert time_diff < 1.0
 
     def test_query_response_custom_timestamp(self):

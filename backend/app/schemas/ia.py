@@ -6,7 +6,7 @@ Provides structured data contracts for IA endpoints with validation
 and OpenAPI documentation support.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
@@ -555,7 +555,7 @@ class QueryResponse(BaseModel):
         examples=[1, 3]
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp of response generation in ISO format",
         examples=["2025-11-13T10:30:00Z"]
     )
@@ -636,7 +636,7 @@ class MetricsResponse(BaseModel):
         examples=[24, 168]
     )
     generated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when metrics were generated"
     )
 

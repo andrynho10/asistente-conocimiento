@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 from app.models.user import User, UserRole
 from app.models.document import Document, DocumentCategory
 from app.models.audit import AuditLog
+from app.models.query import Query  # Query model for IA endpoints
 from app.core.security import get_password_hash
 
 from app.main import app

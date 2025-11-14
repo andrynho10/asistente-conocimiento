@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import logging
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_db_and_tables
@@ -76,6 +77,23 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(knowledge_router)
 app.include_router(ia_router)
+
+
+# Handle Pydantic validation errors - return 400 instead of 422
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Convert Pydantic validation errors (422) to 400 Bad Request for consistency.
+    AC#2: Returns 400 for invalid query parameters.
+    """
+    logger.warning(f"Validation error on {request.url.path}: {exc.errors()}")
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": "Invalid request",
+            "detail": str(exc.errors())
+        }
+    )
 
 
 # Exception handlers for IA service (Task 11: Error Handling)

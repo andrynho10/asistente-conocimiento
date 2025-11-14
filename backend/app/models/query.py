@@ -28,6 +28,7 @@ class QueryBase(SQLModel):
     answer_text: str
     sources_json: str  # JSON array of {document_id, title, relevance_score}
     response_time_ms: float = Field(ge=0)
+    sources_count: int = Field(default=0, ge=0)  # Number of documents retrieved
 
 
 class Query(QueryBase, table=True):

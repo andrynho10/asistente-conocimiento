@@ -84,7 +84,7 @@ class TestAuthentication:
 
     def test_login_missing_fields(self, client):
         response = client.post("/api/auth/login", json={})
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 400  # Validation error (converted from 422)
 
     def test_logout_valid_token(self, client, test_user):
         # First login to get token

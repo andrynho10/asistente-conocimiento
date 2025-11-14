@@ -329,8 +329,8 @@ class TestPathValidationSecurity:
                 headers={"Authorization": f"Bearer {admin_token}"}
             )
 
-            # Debería retornar 404 o 422, no 500
-            assert response.status_code in [404, 422]
+            # Debería retornar 404 o 400 (validation), no 500
+            assert response.status_code in [404, 400]
 
 
 class TestErrorHandling:
@@ -360,9 +360,9 @@ class TestErrorHandling:
                 headers={"Authorization": f"Bearer {admin_token}"}
             )
 
-            # Debería manejar gracefully (404 o 422)
-            assert response.status_code in [404, 422], \
-                f"Invalid ID '{invalid_id}' returned {response.status_code}, expected 404 or 422"
+            # Debería manejar gracefully (404 o 400)
+            assert response.status_code in [404, 400], \
+                f"Invalid ID '{invalid_id}' returned {response.status_code}, expected 404 or 400"
 
     @pytest.mark.asyncio
     async def test_database_rollback_on_error(self, test_db_session, admin_user, sample_document):

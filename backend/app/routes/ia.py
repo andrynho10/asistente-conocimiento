@@ -8,6 +8,7 @@ error handling, logging, and rate limiting.
 
 import time
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -95,9 +96,9 @@ def check_rate_limit(request: Request, limit: int = 10, window: int = 60) -> boo
     return True
 
 
-async def get_llm_service() -> OllamaLLMService:
+def get_llm_service_dependency() -> OllamaLLMService:
     """Dependency injection for LLM service."""
-    return get_llm_service()
+    return OllamaLLMService()
 
 
 @router.get(
@@ -137,7 +138,7 @@ async def get_llm_service() -> OllamaLLMService:
 )
 async def health_check(
     request: Request,
-    llm_svc: OllamaLLMService = Depends(get_llm_service)
+    llm_svc: OllamaLLMService = Depends(get_llm_service_dependency)
 ):
     """
     Check IA service health and availability.
@@ -156,7 +157,7 @@ async def health_check(
         )
 
     start_time = time.time()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     try:
         # Perform health check
@@ -199,7 +200,7 @@ async def health_check(
 
             return JSONResponse(
                 status_code=503,
-                content=response.dict()
+                content=response.model_dump(mode='json')
             )
 
     except Exception as e:
@@ -217,7 +218,7 @@ async def health_check(
 
         return JSONResponse(
             status_code=503,
-            content=response.dict()
+            content=response.model_dump(mode='json')
         )
 
 
@@ -251,7 +252,7 @@ async def health_check(
 async def generate_text(
     request: Request,
     generation_request: GenerationRequest,
-    llm_svc: OllamaLLMService = Depends(get_llm_service)
+    llm_svc: OllamaLLMService = Depends(get_llm_service_dependency)
 ):
     """
     Generate text using the local LLM model.
@@ -348,7 +349,7 @@ async def generate_text(
 )
 async def list_models(
     request: Request,
-    llm_svc: OllamaLLMService = Depends(get_llm_service)
+    llm_svc: OllamaLLMService = Depends(get_llm_service_dependency)
 ):
     """
     Get list of available LLM models.
@@ -564,7 +565,7 @@ async def query_ai(
     query_request: QueryRequest,
     db=Depends(get_session),
     current_user=Depends(get_current_user),
-    llm_svc: OllamaLLMService = Depends(get_llm_service)
+    llm_svc: OllamaLLMService = Depends(get_llm_service_dependency)
 ):
     """
     Submit natural language queries to the conversational AI system.
@@ -718,7 +719,8 @@ Respuesta concisa en español:"""
                 query_text=query_request.query,
                 answer_text=answer,
                 sources_json=sources_json,
-                response_time_ms=response_time_ms
+                response_time_ms=response_time_ms,
+                sources_count=len(sources)  # Number of documents retrieved
             )
             db.add(query_record)
             db.commit()
@@ -844,7 +846,7 @@ async def get_metrics(
 
     try:
         # Calculate 24 hours ago
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         period_start = now - timedelta(hours=24)
 
         logger.info(

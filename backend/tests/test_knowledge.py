@@ -324,7 +324,7 @@ class TestDocumentUpload:
             headers={"Authorization": f"Bearer {admin_token}"},
             data={}
         )
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 400  # Validation error (converted from 422)
 
         # Sin título
         with tempfile.NamedTemporaryFile(mode='wb', suffix='.txt') as tmp:
