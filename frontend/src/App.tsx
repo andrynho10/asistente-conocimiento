@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { Chat } from '@/pages/Chat';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -51,6 +52,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Ruta protegida de chat */}
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <Chat />
               </ProtectedRoute>
             }
           />
