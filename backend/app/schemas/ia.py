@@ -1092,3 +1092,152 @@ class QuizSubmissionResponse(BaseModel):
         description="Timestamp when quiz was submitted",
         examples=["2025-11-14T10:45:00Z"]
     )
+
+
+# Learning Path Generation Schemas
+
+class LearningPathStep(BaseModel):
+    """Individual step in a learning path"""
+    step_number: int = Field(
+        ...,
+        description="Secuencial step number (1, 2, 3...)",
+        ge=1,
+        examples=[1]
+    )
+    title: str = Field(
+        ...,
+        description="Title of the learning step",
+        min_length=5,
+        max_length=200,
+        examples=["Conceptos Fundamentales de Procedimientos"]
+    )
+    document_id: int = Field(
+        ...,
+        description="ID of the document to study in this step",
+        ge=1,
+        examples=[42]
+    )
+    why_this_step: str = Field(
+        ...,
+        description="Pedagogical justification for this step",
+        min_length=10,
+        max_length=300,
+        examples=["Establece fundamentos conceptuales necesarios"]
+    )
+    estimated_time_minutes: int = Field(
+        ...,
+        description="Estimated time to complete step (minutes)",
+        ge=5,
+        le=120,
+        examples=[20]
+    )
+
+
+class LearningPathGenerationRequest(BaseModel):
+    """Request to generate a personalized learning path"""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "topic": "Procedimientos de Reembolsos",
+                    "user_level": "beginner"
+                },
+                {
+                    "topic": "Gestión de Conflictos Laborales",
+                    "user_level": "intermediate"
+                }
+            ]
+        }
+    )
+
+    topic: str = Field(
+        ...,
+        description="Topic for the learning path",
+        min_length=5,
+        max_length=200,
+        examples=["Procedimientos de Reembolsos", "Gestión de Documentación"]
+    )
+    user_level: str = Field(
+        ...,
+        description="User skill level (beginner, intermediate, advanced)",
+        pattern="^(beginner|intermediate|advanced)$",
+        examples=["beginner", "intermediate", "advanced"]
+    )
+
+    @field_validator('user_level')
+    @classmethod
+    def validate_user_level(cls, v):
+        valid_levels = ["beginner", "intermediate", "advanced"]
+        if v not in valid_levels:
+            raise ValueError(f"user_level must be one of {valid_levels}")
+        return v
+
+
+class LearningPathGenerationResponse(BaseModel):
+    """Response with generated learning path"""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "learning_path_id": 1,
+                    "title": "Ruta de Aprendizaje: Procedimientos de Reembolsos",
+                    "steps": [
+                        {
+                            "step_number": 1,
+                            "title": "Conceptos Básicos",
+                            "document_id": 5,
+                            "why_this_step": "Establece fundamentos",
+                            "estimated_time_minutes": 20
+                        }
+                    ],
+                    "total_steps": 5,
+                    "estimated_time_hours": 2.5,
+                    "user_level": "beginner",
+                    "generated_at": "2025-11-14T10:45:00Z"
+                }
+            ]
+        }
+    )
+
+    learning_path_id: int = Field(
+        ...,
+        description="Generated learning path ID",
+        ge=1,
+        examples=[1]
+    )
+    title: str = Field(
+        ...,
+        description="Title of the learning path",
+        examples=["Ruta de Aprendizaje: Procedimientos de Reembolsos"]
+    )
+    steps: List[LearningPathStep] = Field(
+        ...,
+        description="Ordered steps in the learning path",
+        min_items=2,
+        max_items=8
+    )
+    total_steps: int = Field(
+        ...,
+        description="Total number of steps",
+        ge=2,
+        le=8,
+        examples=[5]
+    )
+    estimated_time_hours: float = Field(
+        ...,
+        description="Total estimated time in hours",
+        ge=0.1,
+        le=10.0,
+        examples=[2.5]
+    )
+    user_level: str = Field(
+        ...,
+        description="User level for this path",
+        pattern="^(beginner|intermediate|advanced)$",
+        examples=["beginner"]
+    )
+    generated_at: datetime = Field(
+        ...,
+        description="Timestamp when learning path was generated",
+        examples=["2025-11-14T10:45:00Z"]
+    )

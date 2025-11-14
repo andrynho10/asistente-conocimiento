@@ -6,10 +6,7 @@ Verifica que todos los archivos y carpetas clave existan según los acceptance c
 import os
 from pathlib import Path
 import pytest
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib
+import tomllib  # Available in Python 3.11+, project requires 3.12+
 
 
 def test_backend_directory_structure_exists(project_root):

@@ -141,3 +141,130 @@ export const getIaHealth = async (): Promise<{ status: string }> => {
     throw new Error('No se puede conectar con el servicio de IA');
   }
 };
+
+/**
+ * Learning Path Generation Response
+ */
+export interface LearningPathStep {
+  step_number: number;
+  title: string;
+  document_id: number;
+  why_this_step: string;
+  estimated_time_minutes: number;
+}
+
+export interface GenerateLearningPathResponse {
+  learning_path_id: number;
+  title: string;
+  steps: LearningPathStep[];
+  total_steps: number;
+  estimated_time_hours: number;
+  user_level: 'beginner' | 'intermediate' | 'advanced';
+  generated_at: string;
+}
+
+export interface LearningPath {
+  id: number;
+  user_id: number;
+  topic: string;
+  user_level: 'beginner' | 'intermediate' | 'advanced';
+  title: string;
+  steps: LearningPathStep[];
+  estimated_time_hours: number;
+  content_json: string;
+  created_at: string;
+}
+
+/**
+ * Generar una ruta de aprendizaje personalizada
+ * @param topic - Tema para el que generar la ruta (mínimo 5 caracteres)
+ * @param userLevel - Nivel del usuario: 'beginner', 'intermediate' o 'advanced'
+ * @returns Learning path generado con steps
+ * @throws Error con mensaje específico según código HTTP
+ */
+export const generateLearningPath = async (
+  topic: string,
+  userLevel: 'beginner' | 'intermediate' | 'advanced' = 'intermediate'
+): Promise<GenerateLearningPathResponse> => {
+  try {
+    const response = await iaClient.post<GenerateLearningPathResponse>(
+      '/api/ia/generate/learning-path',
+      {
+        topic,
+        user_level: userLevel,
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ApiErrorResponse>;
+      const status = axiosError.response?.status;
+      const errorData = axiosError.response?.data;
+
+      let errorMessage = 'Error al generar la ruta de aprendizaje. Intenta nuevamente.';
+
+      if (status === 400) {
+        // Validación
+        errorMessage =
+          errorData?.detail ||
+          errorData?.error?.message ||
+          'Tema inválido. Verifica que tenga al menos 5 caracteres.';
+      } else if (status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+      } else if (status === 429) {
+        errorMessage =
+          '🚫 Has generado muchas rutas. Espera un momento antes de continuar.';
+      } else if (status === 503) {
+        errorMessage =
+          '⚠️ El servicio de IA está temporalmente no disponible. Intenta en unos minutos.';
+      } else if (status === 504) {
+        errorMessage =
+          '⏱️ La generación tardó demasiado. Intenta con un tema más específico.';
+      } else if (status === 500) {
+        errorMessage =
+          'Error interno del servidor. Por favor, contacta al administrador.';
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error('Ocurrió un error inesperado. Por favor, intenta nuevamente.');
+  }
+};
+
+/**
+ * Obtener una ruta de aprendizaje generada
+ * @param pathId - ID de la ruta de aprendizaje
+ * @returns Datos completos de la ruta de aprendizaje
+ * @throws Error si no se encuentra o no hay autorización
+ */
+export const getLearningPath = async (pathId: number): Promise<LearningPath> => {
+  try {
+    const response = await iaClient.get<LearningPath>(
+      `/api/ia/learning-path/${pathId}`
+    );
+
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ApiErrorResponse>;
+      const status = axiosError.response?.status;
+      const errorData = axiosError.response?.data;
+
+      let errorMessage = 'Error al cargar la ruta de aprendizaje.';
+
+      if (status === 404) {
+        errorMessage = 'La ruta de aprendizaje no existe.';
+      } else if (status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+      } else if (status === 403) {
+        errorMessage = 'No tienes acceso a esta ruta de aprendizaje.';
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error('Error de conexión. Intenta nuevamente.');
+  }
+};

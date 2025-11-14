@@ -16,7 +16,10 @@ from fastapi.responses import JSONResponse
 
 from app.services.llm_service import get_llm_service, OllamaLLMService
 from app.services.retrieval_service import RetrievalService
+from app.services.learning_path_service import LearningPathService
 from app.database import get_session
+from app.models import LearningPath
+from sqlmodel import select
 from app.schemas.ia import (
     HealthResponse,
     GenerationRequest,
@@ -34,7 +37,9 @@ from app.schemas.ia import (
     QuizGenerationRequest,
     QuizGenerationResponse,
     QuizSubmissionRequest,
-    QuizSubmissionResponse
+    QuizSubmissionResponse,
+    LearningPathGenerationRequest,
+    LearningPathGenerationResponse
 )
 
 # Import admin dependency for endpoint protection
@@ -1505,4 +1510,243 @@ async def submit_quiz(
         raise HTTPException(
             status_code=500,
             detail="Quiz submission failed. Please try again later."
+        )
+
+
+@router.post(
+    "/generate/learning-path",
+    response_model=LearningPathGenerationResponse,
+    summary="Generate Personalized Learning Path",
+    description="Generate a personalized learning path for a given topic and user skill level",
+    responses={
+        200: {
+            "description": "Learning path generated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "learning_path_id": 1,
+                        "title": "Ruta de Aprendizaje: Procedimientos de Reembolsos",
+                        "steps": [
+                            {
+                                "step_number": 1,
+                                "title": "Conceptos Fundamentales",
+                                "document_id": 5,
+                                "why_this_step": "Establece los conceptos base necesarios",
+                                "estimated_time_minutes": 20
+                            }
+                        ],
+                        "total_steps": 4,
+                        "estimated_time_hours": 1.5,
+                        "user_level": "beginner",
+                        "generated_at": "2025-11-14T10:45:00Z"
+                    }
+                }
+            }
+        },
+        400: {"description": "Invalid request or insufficient documents found"},
+        401: {"description": "Unauthorized - authentication required"},
+        429: {"description": "Rate limit exceeded"},
+        503: {"description": "AI service unavailable"}
+    }
+)
+async def generate_learning_path(
+    request: Request,
+    learning_path_request: LearningPathGenerationRequest,
+    db=Depends(get_session),
+    current_user=Depends(get_current_user)
+):
+    """
+    Generate a personalized learning path for a given topic.
+
+    This endpoint creates an instructional sequence through documents
+    tailored to the user's skill level (beginner/intermediate/advanced).
+
+    The learning path includes:
+    - Ordered sequence of documents to study
+    - Pedagogical justification for each step
+    - Estimated time for each step
+    - Total estimated learning time
+
+    AC1, AC2, AC18 (Story 4.4)
+    """
+    from app.services.learning_path_service import LearningPathService
+
+    start_time = time.time()
+
+    try:
+        # Rate limiting: max 5 requests per user per day (AC2.5 in story)
+        rate_limit_key = f"learning_path:{current_user.id}"
+        if not check_rate_limit(request, limit=5, window=86400):  # 86400 = 1 day in seconds
+            raise HTTPException(
+                status_code=429,
+                detail="Límite de generación de rutas alcanzado. Máximo 5 por día."
+            )
+
+        # Validate LLM service is healthy
+        llm_svc = OllamaLLMService()
+        is_healthy = await llm_svc.health_check_async()
+        if not is_healthy:
+            raise ConnectionError("Ollama service not responding")
+
+        # Generate learning path
+        service = LearningPathService(db)
+        response = await service.generate_learning_path(
+            topic=learning_path_request.topic,
+            user_level=learning_path_request.user_level,
+            user_id=current_user.id
+        )
+
+        total_time = (time.time() - start_time) * 1000
+        logger.info(
+            f"Learning path generated successfully for user {current_user.id}, "
+            f"topic: '{learning_path_request.topic}', level: {learning_path_request.user_level}, "
+            f"time: {total_time:.0f}ms"
+        )
+
+        return response
+
+    except ValueError as e:
+        # Input validation or insufficient documents
+        total_time = (time.time() - start_time) * 1000
+        error_msg = str(e)
+
+        logger.warning(
+            f"Learning path generation validation error for user {current_user.id}: {error_msg} "
+            f"(time: {total_time:.0f}ms)"
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=error_msg
+        )
+
+    except ConnectionError as e:
+        total_time = (time.time() - start_time) * 1000
+        error_msg = str(e)
+
+        logger.error(
+            f"LLM service error during learning path generation for user {current_user.id}: {error_msg} "
+            f"(time: {total_time:.0f}ms)"
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de IA no disponible. Intenta más tarde."
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        total_time = (time.time() - start_time) * 1000
+        error_msg = f"Learning path generation failed: {str(e)}"
+
+        logger.error(
+            f"Unexpected error during learning path generation for user {current_user.id}: "
+            f"{error_msg} (time: {total_time:.0f}ms)"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Error al generar la ruta de aprendizaje. Por favor intenta más tarde."
+        )
+
+
+@router.get(
+    "/learning-path/{path_id}",
+    response_model=LearningPathGenerationResponse,
+    summary="Retrieve Learning Path",
+    description="Get a previously generated learning path by ID",
+    responses={
+        200: {"description": "Learning path retrieved successfully"},
+        401: {"description": "Unauthorized - authentication required"},
+        404: {"description": "Learning path not found"},
+        403: {"description": "Access denied - you don't have permission to view this path"}
+    }
+)
+async def get_learning_path(
+    path_id: int,
+    db=Depends(get_session),
+    current_user=Depends(get_current_user)
+):
+    """
+    Retrieve a previously generated learning path.
+
+    Returns the learning path with all steps and estimated times.
+    Users can only access their own learning paths.
+
+    AC13, AC17 (Story 4.4)
+    """
+    from sqlmodel import select
+
+    try:
+        # Fetch learning path from database
+        learning_path = db.exec(
+            select(LearningPath).where(LearningPath.id == path_id)
+        ).first()
+
+        if not learning_path:
+            logger.warning(
+                f"Learning path {path_id} not found (requested by user {current_user.id})"
+            )
+            raise HTTPException(
+                status_code=404,
+                detail="Ruta de aprendizaje no encontrada"
+            )
+
+        # Verify user has access (own path only)
+        if learning_path.user_id != current_user.id:
+            logger.warning(
+                f"Access denied to learning path {path_id} for user {current_user.id} "
+                f"(owner: {learning_path.user_id})"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="No tienes permiso para acceder a esta ruta"
+            )
+
+        # Format response from stored content_json
+        content = learning_path.content_json or {}
+
+        # Parse JSON if it's a string
+        if isinstance(content, str):
+            import json
+            content = json.loads(content)
+
+        # Calculate estimated_time_hours if not in content
+        estimated_time_hours = content.get("estimated_time_hours")
+        if estimated_time_hours is None or estimated_time_hours == 0:
+            # Calculate from steps' estimated_time_minutes
+            steps = content.get("steps", [])
+            total_minutes = sum(step.get("estimated_time_minutes", 0) for step in steps)
+            estimated_time_hours = total_minutes / 60 if total_minutes > 0 else 0.1
+
+        response = LearningPathGenerationResponse(
+            learning_path_id=learning_path.id,
+            title=content.get("title", f"Ruta de Aprendizaje: {learning_path.topic}"),
+            steps=content.get("steps", []),
+            total_steps=content.get("total_steps", len(content.get("steps", []))),
+            estimated_time_hours=estimated_time_hours,
+            user_level=learning_path.user_level,
+            generated_at=learning_path.created_at.isoformat() + "Z"
+        )
+
+        logger.info(
+            f"Learning path {path_id} retrieved successfully for user {current_user.id}"
+        )
+
+        return response
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        error_msg = f"Failed to retrieve learning path: {str(e)}"
+        logger.error(
+            f"Unexpected error retrieving learning path {path_id} for user {current_user.id}: {error_msg}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Error al obtener la ruta de aprendizaje. Por favor intenta más tarde."
         )

@@ -1036,6 +1036,114 @@ description: "Manual completo de procedimientos organizacionales"
 }
 ```
 
+#### POST /api/ia/generate/learning-path
+**Headers:** `Authorization: Bearer {token}`
+**Rate Limit:** 5 requests per user per day
+
+**Request:**
+```json
+{
+  "topic": "procedimientos de reembolsos",
+  "user_level": "beginner"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "learning_path_id": 456,
+  "title": "Ruta de Aprendizaje: Procedimientos de Reembolsos (Principiante)",
+  "steps": [
+    {
+      "step_number": 1,
+      "title": "Entender los conceptos básicos de reembolsos",
+      "document_id": 123,
+      "why_this_step": "Es importante conocer qué son los reembolsos y sus categorías",
+      "estimated_time_minutes": 15
+    },
+    {
+      "step_number": 2,
+      "title": "Aprender el procedimiento paso a paso",
+      "document_id": 124,
+      "why_this_step": "Necesitas saber exactamente cómo solicitar un reembolso",
+      "estimated_time_minutes": 20
+    }
+  ],
+  "total_steps": 2,
+  "estimated_time_hours": 0.58,
+  "user_level": "beginner",
+  "generated_at": "2025-11-14T12:30:00Z"
+}
+```
+
+**Error (400 Bad Request - Insufficient Documents):**
+```json
+{
+  "detail": "No se encontraron documentos suficientes sobre 'tema_inexistente'. Intenta con otro tema."
+}
+```
+
+**Error (400 Bad Request - Validation):**
+```json
+{
+  "detail": "El tema debe tener al menos 5 caracteres"
+}
+```
+
+**Error (429 Too Many Requests):**
+```json
+{
+  "detail": "Has alcanzado el límite de 5 generaciones por día. Intenta mañana."
+}
+```
+
+#### GET /api/ia/learning-path/{path_id}
+**Headers:** `Authorization: Bearer {token}`
+
+**Response (200 OK):**
+```json
+{
+  "id": 456,
+  "user_id": 1,
+  "topic": "procedimientos de reembolsos",
+  "user_level": "beginner",
+  "title": "Ruta de Aprendizaje: Procedimientos de Reembolsos (Principiante)",
+  "steps": [
+    {
+      "step_number": 1,
+      "title": "Entender los conceptos básicos de reembolsos",
+      "document_id": 123,
+      "why_this_step": "Es importante conocer qué son los reembolsos y sus categorías",
+      "estimated_time_minutes": 15
+    },
+    {
+      "step_number": 2,
+      "title": "Aprender el procedimiento paso a paso",
+      "document_id": 124,
+      "why_this_step": "Necesitas saber exactamente cómo solicitar un reembolso",
+      "estimated_time_minutes": 20
+    }
+  ],
+  "estimated_time_hours": 0.58,
+  "content_json": "{...}",
+  "created_at": "2025-11-14T12:30:00Z"
+}
+```
+
+**Error (404 Not Found):**
+```json
+{
+  "detail": "La ruta de aprendizaje no existe"
+}
+```
+
+**Error (403 Forbidden):**
+```json
+{
+  "detail": "No tienes acceso a esta ruta de aprendizaje"
+}
+```
+
 ### Audit Endpoints
 
 #### GET /api/audit/logs

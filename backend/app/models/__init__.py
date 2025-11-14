@@ -40,6 +40,13 @@ from .quiz import (
     QuizQuestionUpdate,
     DifficultyLevel
 )
+from .learning_path import (
+    LearningPath,
+    LearningPathCreate,
+    LearningPathRead,
+    LearningPathUpdate,
+    UserLevel
+)
 
 __all__ = [
     # User models
@@ -85,4 +92,11 @@ __all__ = [
     "QuizQuestionRead",
     "QuizQuestionUpdate",
     "DifficultyLevel",
+
+    # Learning Path models
+    "LearningPath",
+    "LearningPathCreate",
+    "LearningPathRead",
+    "LearningPathUpdate",
+    "UserLevel",
 ]

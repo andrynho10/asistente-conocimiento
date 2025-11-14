@@ -4,6 +4,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { Chat } from '@/pages/Chat';
 import { QuizPage } from '@/pages/QuizPage';
+import { LearningPathPage } from '@/pages/LearningPathPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -73,6 +74,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <QuizPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Ruta protegida de learning path (Story 4.4) */}
+          <Route
+            path="/learning-path/:pathId"
+            element={
+              <ProtectedRoute>
+                <LearningPathPage />
               </ProtectedRoute>
             }
           />
