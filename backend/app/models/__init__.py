@@ -29,6 +29,17 @@ from .generated_content import (
     GeneratedContentUpdate,
     ContentType
 )
+from .quiz import (
+    Quiz,
+    QuizCreate,
+    QuizRead,
+    QuizUpdate,
+    QuizQuestion,
+    QuizQuestionCreate,
+    QuizQuestionRead,
+    QuizQuestionUpdate,
+    DifficultyLevel
+)
 
 __all__ = [
     # User models
@@ -63,4 +74,15 @@ __all__ = [
     "GeneratedContentRead",
     "GeneratedContentUpdate",
     "ContentType",
+
+    # Quiz models
+    "Quiz",
+    "QuizCreate",
+    "QuizRead",
+    "QuizUpdate",
+    "QuizQuestion",
+    "QuizQuestionCreate",
+    "QuizQuestionRead",
+    "QuizQuestionUpdate",
+    "DifficultyLevel",
 ]

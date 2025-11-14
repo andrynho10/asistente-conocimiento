@@ -29,7 +29,9 @@ from app.schemas.ia import (
     MetricsResponse,
     ErrorResponse,
     SummaryGenerationRequest,
-    SummaryGenerationResponse
+    SummaryGenerationResponse,
+    QuizGenerationRequest,
+    QuizGenerationResponse
 )
 
 # Import admin dependency for endpoint protection
@@ -1174,4 +1176,222 @@ async def generate_summary(
         raise HTTPException(
             status_code=500,
             detail="Summary generation failed. Please try again later."
+        )
+
+
+# Story 4.2: Quiz Generation Endpoint
+
+@router.post(
+    "/generate/quiz",
+    response_model=QuizGenerationResponse,
+    summary="Generate Quiz from Document",
+    description="""Generate multiple-choice quiz automatically from a document (Story 4.2, AC1-AC15).
+
+Supports three difficulty levels and configurable question counts:
+- **basic**: Recall-based questions (direct facts from document)
+- **intermediate**: Application and comprehension questions (scenarios)
+- **advanced**: Analysis and synthesis questions (complex reasoning)
+
+Question counts: 5, 10, or 15 questions
+
+Includes 7-day intelligent caching to improve performance on repeated requests.
+""",
+    responses={
+        200: {
+            "description": "Quiz generated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "quiz_id": 42,
+                        "questions": [
+                            {
+                                "question": "¿Cuál es el período de vacaciones?",
+                                "options": ["15 días", "10 días", "20 días", "30 días"],
+                                "correct_answer": "15 días",
+                                "explanation": "La política establece 15 días hábiles...",
+                                "difficulty": "basic"
+                            }
+                        ],
+                        "total_questions": 5,
+                        "difficulty": "basic",
+                        "estimated_minutes": 5,
+                        "generated_at": "2025-11-14T10:30:00Z"
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "Invalid request or quiz generation failed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "No se pudo generar cantidad requerida de preguntas"
+                    }
+                }
+            }
+        },
+        401: {"description": "Unauthenticated - authentication required"},
+        404: {
+            "description": "Document not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Documento no encontrado"}
+                }
+            }
+        },
+        429: {"description": "Rate limit exceeded"},
+        503: {
+            "description": "AI service unavailable",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Servicio de IA no disponible"}
+                }
+            }
+        }
+    }
+)
+async def generate_quiz(
+    request: Request,
+    quiz_request: QuizGenerationRequest,
+    db=Depends(get_session),
+    current_user=Depends(get_current_user)
+):
+    """
+    Generate an automatic quiz from a document.
+
+    This endpoint implements the complete quiz generation pipeline (Story 4.2):
+
+    **AC1-AC3**: Endpoint with Bearer token authentication, request validation, response structure
+    **AC4-AC7**: LLM-based generation with difficulty levels and answer validation
+    **AC8-AC11**: Comprehensive error handling for all failure cases
+    **AC12-AC13**: Database storage with quiz and question tables
+    **AC14**: Intelligent 7-day caching of quizzes
+    **AC15**: Automatic time estimation
+
+    Rate limiting: 10 quiz requests per 60 seconds per user
+    """
+    from app.services.quiz_service import QuizService
+
+    start_time = time.time()
+
+    try:
+        # Rate limiting (10 quizzes per 60 seconds per user)
+        user_rate_key = f"rate_limit:quiz:{current_user.id}"
+        now = time.time()
+
+        if user_rate_key not in rate_limits:
+            rate_limits[user_rate_key] = {"count": 0, "window_start": now}
+
+        # Reset window if expired (60 seconds)
+        if now - rate_limits[user_rate_key]["window_start"] > 60:
+            rate_limits[user_rate_key] = {"count": 0, "window_start": now}
+
+        # Check limit
+        if rate_limits[user_rate_key]["count"] >= 10:
+            logger.warning(
+                f"Rate limit exceeded for quiz generation - user {current_user.id}: "
+                f"{rate_limits[user_rate_key]['count']} requests in current window"
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded: 10 quiz requests per 60 seconds per user"
+            )
+
+        # Increment counter
+        rate_limits[user_rate_key]["count"] += 1
+
+        logger.info(
+            f"Quiz request from user {current_user.id}: "
+            f"document_id={quiz_request.document_id}, "
+            f"num_questions={quiz_request.num_questions}, "
+            f"difficulty={quiz_request.difficulty}"
+        )
+
+        # Check if LLM service is available
+        llm_svc = OllamaLLMService()
+        if not await llm_svc.health_check_async():
+            logger.warning("Ollama service not available for quiz generation")
+            raise HTTPException(
+                status_code=503,
+                detail="Servicio de IA no disponible"
+            )
+
+        # Generate quiz using QuizService
+        quiz_service = QuizService(db)
+        result = await quiz_service.generate_quiz(
+            document_id=quiz_request.document_id,
+            num_questions=quiz_request.num_questions,
+            difficulty=quiz_request.difficulty,
+            user_id=current_user.id
+        )
+
+        # Build response
+        response = QuizGenerationResponse(
+            quiz_id=result["quiz_id"],
+            questions=[
+                {
+                    "question": q["question"],
+                    "options": q["options"],
+                    "correct_answer": q["correct_answer"],
+                    "explanation": q["explanation"],
+                    "difficulty": q["difficulty"]
+                }
+                for q in result["questions"]
+            ],
+            total_questions=result["total_questions"],
+            difficulty=result["difficulty"],
+            estimated_minutes=result["estimated_minutes"],
+            generated_at=datetime.fromisoformat(result["generated_at"])
+        )
+
+        total_time = (time.time() - start_time) * 1000
+
+        logger.info(
+            f"Quiz generated successfully for document {quiz_request.document_id} "
+            f"(user: {current_user.id}, "
+            f"difficulty: {quiz_request.difficulty}, "
+            f"questions: {quiz_request.num_questions}, "
+            f"time: {total_time:.0f}ms)"
+        )
+
+        return response
+
+    except ValueError as e:
+        # Input validation or document issues
+        error_msg = str(e)
+
+        # Map to appropriate HTTP status codes
+        if "no encontrado" in error_msg.lower():
+            status_code = 404
+            logger.warning(f"Document not found: {error_msg}")
+        else:
+            status_code = 400
+            logger.warning(f"Invalid quiz request: {error_msg}")
+
+        raise HTTPException(status_code=status_code, detail=error_msg)
+
+    except ConnectionError as e:
+        # LLM service unavailable
+        logger.error(f"LLM service error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de IA no disponible"
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+
+    except Exception as e:
+        total_time = (time.time() - start_time) * 1000
+
+        error_msg = f"Quiz generation failed: {str(e)}"
+        logger.error(
+            f"Unexpected error during quiz generation for user {current_user.id}: "
+            f"{error_msg} (time: {total_time:.0f}ms)"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Quiz generation failed. Please try again later."
         )

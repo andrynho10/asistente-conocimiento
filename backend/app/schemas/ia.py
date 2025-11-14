@@ -781,3 +781,152 @@ class SummaryGenerationResponse(BaseModel):
         ge=0,
         examples=[2345.5]
     )
+
+
+# Story 4.2: Quiz Generation Schemas
+
+class QuizGenerationRequest(BaseModel):
+    """
+    Request model for quiz generation endpoint (Story 4.2, AC1, AC2).
+
+    Specifies which document to generate quiz from and quiz parameters.
+    """
+    document_id: int = Field(
+        ...,
+        description="ID of the document to generate quiz from",
+        ge=1,
+        examples=[1, 42]
+    )
+    num_questions: int = Field(
+        ...,
+        description="Number of questions to generate (5, 10, or 15)",
+        enum=[5, 10, 15],
+        examples=[5, 10, 15]
+    )
+    difficulty: str = Field(
+        ...,
+        description="Difficulty level: basic (recall), intermediate (application), or advanced (analysis)",
+        pattern="^(basic|intermediate|advanced)$",
+        examples=["basic", "intermediate", "advanced"]
+    )
+
+    @field_validator('num_questions')
+    @classmethod
+    def validate_num_questions(cls, v):
+        """Validate num_questions is one of allowed values."""
+        if v not in {5, 10, 15}:
+            raise ValueError("num_questions must be 5, 10, or 15")
+        return v
+
+    @field_validator('difficulty')
+    @classmethod
+    def validate_difficulty(cls, v):
+        """Validate difficulty is one of allowed values."""
+        if v not in {"basic", "intermediate", "advanced"}:
+            raise ValueError("difficulty must be 'basic', 'intermediate', or 'advanced'")
+        return v
+
+
+class QuizQuestionResponse(BaseModel):
+    """
+    Individual question in a quiz response (Story 4.2, AC4).
+
+    Contains question, options, correct answer, and explanation.
+    """
+    question: str = Field(
+        ...,
+        description="The question text",
+        examples=["¿Cuáles son los derechos de vacaciones?"]
+    )
+    options: List[str] = Field(
+        ...,
+        description="Array of 4 possible answers",
+        min_items=4,
+        max_items=4,
+        examples=[
+            ["15 días", "10 días", "20 días", "30 días"]
+        ]
+    )
+    correct_answer: str = Field(
+        ...,
+        description="The correct answer (must be one of options)",
+        examples=["15 días"]
+    )
+    explanation: str = Field(
+        ...,
+        description="Explanation of the correct answer with reference to document",
+        examples=["La política establece 15 días hábiles de vacaciones anuales para todos los empleados..."]
+    )
+    difficulty: str = Field(
+        ...,
+        description="Difficulty level of this question",
+        pattern="^(basic|intermediate|advanced)$",
+        examples=["basic"]
+    )
+
+
+class QuizGenerationResponse(BaseModel):
+    """
+    Response model for quiz generation endpoint (Story 4.2, AC3).
+
+    Contains the generated quiz with all questions and metadata.
+    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "quiz_id": 42,
+                    "questions": [
+                        {
+                            "question": "¿Cuáles son los derechos de vacaciones?",
+                            "options": ["15 días", "10 días", "20 días", "30 días"],
+                            "correct_answer": "15 días",
+                            "explanation": "La política establece 15 días hábiles...",
+                            "difficulty": "basic"
+                        }
+                    ],
+                    "total_questions": 5,
+                    "difficulty": "basic",
+                    "estimated_minutes": 5,
+                    "generated_at": "2025-11-14T10:30:00Z"
+                }
+            ]
+        }
+    )
+
+    quiz_id: int = Field(
+        ...,
+        description="ID of the generated quiz",
+        ge=1,
+        examples=[42]
+    )
+    questions: List[QuizQuestionResponse] = Field(
+        ...,
+        description="Array of generated quiz questions (AC4)",
+        min_items=1,
+        examples=[[]]
+    )
+    total_questions: int = Field(
+        ...,
+        description="Total number of questions in the quiz",
+        ge=1,
+        enum=[5, 10, 15],
+        examples=[5, 10, 15]
+    )
+    difficulty: str = Field(
+        ...,
+        description="Difficulty level of the quiz",
+        pattern="^(basic|intermediate|advanced)$",
+        examples=["basic"]
+    )
+    estimated_minutes: int = Field(
+        ...,
+        description="Estimated time to complete quiz in minutes (AC15)",
+        ge=1,
+        examples=[5, 10, 15]
+    )
+    generated_at: datetime = Field(
+        ...,
+        description="Timestamp when quiz was generated",
+        examples=["2025-11-14T10:30:00Z"]
+    )
