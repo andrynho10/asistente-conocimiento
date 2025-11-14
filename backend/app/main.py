@@ -8,6 +8,7 @@ from app.database import create_db_and_tables
 from app.auth.routes import router as auth_router
 from app.routes.knowledge import router as knowledge_router
 from app.routes.ia import router as ia_router
+from app.routes.admin import router as admin_router
 from app.auth.models import HealthResponse
 from app.core.config import get_settings
 from app.services.llm_service import get_llm_service
@@ -79,6 +80,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(knowledge_router)
 app.include_router(ia_router)
+app.include_router(admin_router)
 
 
 # Handle Pydantic validation errors - return 400 instead of 422

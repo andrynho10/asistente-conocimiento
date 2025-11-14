@@ -5,6 +5,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { Chat } from '@/pages/Chat';
 import { QuizPage } from '@/pages/QuizPage';
 import { LearningPathPage } from '@/pages/LearningPathPage';
+import { AdminGeneratedContentPage } from '@/pages/AdminGeneratedContentPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -87,6 +88,19 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Ruta protegida de admin dashboard (Story 4.5) */}
+          <Route
+            path="/admin/generated-content"
+            element={
+              <ProtectedRoute>
+                <AdminGeneratedContentPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Ruta 403 - acceso denegado */}
+          <Route path="/403" element={<div className="min-h-screen flex items-center justify-center"><p>Acceso denegado</p></div>} />
 
           {/* Ruta 404 - redirige a login */}
           <Route path="*" element={<Navigate to="/login" replace />} />

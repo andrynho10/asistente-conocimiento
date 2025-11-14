@@ -1307,6 +1307,63 @@ async def log_action(
     await session.commit()
 ```
 
+### Admin Dashboard Endpoints (Story 4.5)
+
+**Nuevos endpoints para dashboard de administrador - Gestión centralizada de contenido generado**
+
+**Endpoints:**
+
+1. **GET /api/admin/generated-content**
+   - Descripción: Lista todo el contenido generado con filtros y paginación
+   - Auth: Requiere Bearer token + rol admin
+   - Parámetros query:
+     - `type`: Filtro por tipo (summary|quiz|learning_path)
+     - `document_id`: Filtro por documento
+     - `user_id`: Filtro por usuario generador
+     - `date_from`: Fecha inicial (ISO 8601)
+     - `date_to`: Fecha final (ISO 8601)
+     - `search`: Búsqueda de texto libre
+     - `limit`: Items por página (default 20)
+     - `offset`: Paginación offset
+     - `sort_by`: Campo para ordenamiento (id, created_at, content_type)
+     - `sort_order`: asc|desc
+   - Response: `{total: int, items: [{id, content_type, document_id, user_id, created_at, is_validated, validated_by, validated_at}], limit, offset}`
+
+2. **PUT /api/admin/generated-content/{content_id}/validate**
+   - Descripción: Marcar contenido como validado/revisado
+   - Auth: Requiere rol admin
+   - Body: `{is_validated: bool}`
+   - Response: `{id, is_validated, validated_by, validated_at}`
+   - Auditoría: Registra acción con validated_by, timestamp
+
+3. **DELETE /api/admin/generated-content/{content_id}**
+   - Descripción: Soft delete de contenido (marca como eliminado, no borra)
+   - Auth: Requiere rol admin
+   - Response: 204 No Content
+   - Auditoría: Registra acción de eliminación
+
+4. **GET /api/admin/quiz/{quiz_id}/stats**
+   - Descripción: Estadísticas de evaluación de un quiz
+   - Auth: Requiere rol admin
+   - Response: `{quiz_id, total_attempts, avg_score_percentage, pass_rate, most_difficult_question: {number, correct_rate}}`
+
+5. **GET /api/admin/learning-path/{path_id}/stats**
+   - Descripción: Estadísticas de una ruta de aprendizaje
+   - Auth: Requiere rol admin
+   - Response: `{path_id, total_views, completed_count, completion_rate, most_skipped_step}`
+
+6. **GET /api/admin/generated-content/export**
+   - Descripción: Exportar contenido como CSV o PDF
+   - Auth: Requiere rol admin
+   - Parámetros: `format` (csv|pdf)
+   - Response: Archivo descargable con Content-Disposition: attachment
+
+**Implementación:**
+- Archivo: `backend/app/routes/admin.py`
+- Servicio: `backend/app/services/admin_service.py`
+- Modelos BD: ExtendGeneratedContent con campos is_validated, validated_by, validated_at, deleted_at
+- Tablas adicionales: quiz_attempts, learning_path_progress para estadísticas
+
 ### Compliance (Ley 19.628 - Chile)
 
 **Medidas Implementadas:**

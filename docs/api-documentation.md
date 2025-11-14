@@ -277,3 +277,170 @@ Las acciones auditadas incluyen:
 - DOCUMENT_DOWNLOADED
 - DOCUMENT_DELETED
 - DELETE_ATTEMPT
+
+## Endpoints de Administración (Story 4.5)
+
+Dashboard centralizado para administradores para gestionar todo el contenido generado por IA.
+
+### GET /api/admin/generated-content
+Listar todo el contenido generado (resúmenes, quizzes, rutas de aprendizaje) con filtros avanzados.
+
+**Headers:**
+- Authorization: Bearer {token_jwt}
+- Requiere: rol = "admin"
+
+**Query Parameters:**
+- type (string, opcional): Filtro por tipo (summary, quiz, learning_path)
+- document_id (int, opcional): Filtro por documento
+- user_id (int, opcional): Filtro por usuario generador
+- date_from (string ISO 8601, opcional): Fecha inicial
+- date_to (string ISO 8601, opcional): Fecha final
+- search (string, opcional): Búsqueda libre en ID, título, usuario
+- limit (int, opcional, default=20): Items por página
+- offset (int, opcional, default=0): Offset para paginación
+- sort_by (string, opcional, default="created_at"): Campo de ordenamiento (id, created_at, content_type)
+- sort_order (string, opcional, default="desc"): asc o desc
+
+**Response:**
+```json
+{
+  "total": 42,
+  "items": [
+    {
+      "id": 1,
+      "content_type": "summary",
+      "document_id": 10,
+      "document_name": "Políticas de RRHH",
+      "user_id": 2,
+      "user_username": "jhon_doe",
+      "created_at": "2025-11-14T10:30:00Z",
+      "is_validated": true,
+      "validated_by": 1,
+      "validated_at": "2025-11-14T11:00:00Z"
+    }
+  ],
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Error Responses:**
+- 401 Unauthorized: Sin token o token inválido
+- 403 Forbidden: Usuario no es admin
+
+### PUT /api/admin/generated-content/{content_id}/validate
+Marcar contenido como validado/revisado por administrador.
+
+**Headers:**
+- Authorization: Bearer {token_jwt}
+- Requiere: rol = "admin"
+
+**Path Parameters:**
+- content_id (int): ID del contenido
+
+**Request Body:**
+```json
+{
+  "is_validated": true
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "is_validated": true,
+  "validated_by": 1,
+  "validated_at": "2025-11-14T11:00:00Z"
+}
+```
+
+**Auditoría:** Se registra acción "VALIDATE_CONTENT" en audit_logs
+
+### DELETE /api/admin/generated-content/{content_id}
+Eliminar (soft delete) contenido generado. El contenido se marca como eliminado pero no se borra de BD.
+
+**Headers:**
+- Authorization: Bearer {token_jwt}
+- Requiere: rol = "admin"
+
+**Path Parameters:**
+- content_id (int): ID del contenido
+
+**Response:** 204 No Content
+
+**Auditoría:** Se registra acción "DELETE_CONTENT" en audit_logs
+
+### GET /api/admin/quiz/{quiz_id}/stats
+Obtener estadísticas de evaluación de un quiz específico.
+
+**Headers:**
+- Authorization: Bearer {token_jwt}
+- Requiere: rol = "admin"
+
+**Path Parameters:**
+- quiz_id (int): ID del quiz
+
+**Response:**
+```json
+{
+  "quiz_id": 5,
+  "total_attempts": 42,
+  "avg_score_percentage": 78.5,
+  "pass_rate": 85.7,
+  "most_difficult_question": {
+    "number": 7,
+    "correct_rate": 52.4
+  }
+}
+```
+
+### GET /api/admin/learning-path/{path_id}/stats
+Obtener estadísticas de una ruta de aprendizaje.
+
+**Headers:**
+- Authorization: Bearer {token_jwt}
+- Requiere: rol = "admin"
+
+**Path Parameters:**
+- path_id (int): ID de la ruta
+
+**Response:**
+```json
+{
+  "path_id": 3,
+  "total_views": 156,
+  "completed_count": 89,
+  "completion_rate": 57.1,
+  "most_skipped_step": 4
+}
+```
+
+### GET /api/admin/generated-content/export
+Exportar listado de contenido generado en formato CSV o PDF.
+
+**Headers:**
+- Authorization: Bearer {token_jwt}
+- Requiere: rol = "admin"
+
+**Query Parameters:**
+- format (string): csv o pdf (default: csv)
+- type (string, opcional): Filtro por tipo
+- document_id (int, opcional): Filtro por documento
+- user_id (int, opcional): Filtro por usuario
+
+**Response:**
+- Archivo descargable con Content-Type: text/csv o application/pdf
+- Content-Disposition: attachment; filename="generated-content-export-{date}.{format}"
+
+**CSV Columns:**
+- id
+- content_type
+- document
+- user
+- created_at
+
+**PDF Includes:**
+- Tabla con todos los campos
+- Metadata (fecha de export, admin que realizó)
+- Totales por tipo

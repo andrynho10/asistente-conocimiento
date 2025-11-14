@@ -45,6 +45,10 @@ from .learning_path import (
     LearningPathCreate,
     LearningPathRead,
     LearningPathUpdate,
+    LearningPathProgress,
+    LearningPathProgressCreate,
+    LearningPathProgressRead,
+    LearningPathProgressUpdate,
     UserLevel
 )
 
@@ -98,5 +102,9 @@ __all__ = [
     "LearningPathCreate",
     "LearningPathRead",
     "LearningPathUpdate",
+    "LearningPathProgress",
+    "LearningPathProgressCreate",
+    "LearningPathProgressRead",
+    "LearningPathProgressUpdate",
     "UserLevel",
 ]

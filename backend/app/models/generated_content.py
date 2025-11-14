@@ -39,6 +39,14 @@ class GeneratedContent(GeneratedContentBase, table=True):
         index=True
     )
 
+    # Admin validation fields (Story 4.5)
+    is_validated: bool = Field(default=False, index=True)
+    validated_by: int | None = Field(default=None, foreign_key="user.id", nullable=True)
+    validated_at: datetime | None = Field(default=None, nullable=True)
+
+    # Soft delete support (Story 4.5)
+    deleted_at: datetime | None = Field(default=None, index=True, nullable=True)
+
     # NOTE: Relationships intentionally omitted to avoid circular imports
     # GeneratedContent is referenced primarily for caching, not relational queries
 
@@ -52,8 +60,17 @@ class GeneratedContentRead(GeneratedContentBase):
     """Schema para leer datos de contenido generado"""
     id: int
     created_at: datetime
+    is_validated: bool
+    validated_by: int | None = None
+    validated_at: datetime | None = None
+    deleted_at: datetime | None = None
 
 
 class GeneratedContentUpdate(SQLModel):
     """Schema para actualizar contenido generado"""
     content_json: dict[str, Any] | None = Field(default=None)
+
+
+class GeneratedContentAdminValidate(SQLModel):
+    """Schema para validación de contenido por admin"""
+    is_validated: bool

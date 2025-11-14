@@ -55,3 +55,43 @@ class LearningPathRead(LearningPathBase):
 class LearningPathUpdate(SQLModel):
     """Schema para actualizar ruta de aprendizaje"""
     content_json: dict[str, Any] | None = Field(default=None)
+
+
+class LearningPathProgressBase(SQLModel):
+    """Base model para LearningPathProgress con campos comunes"""
+    path_id: int = Field(foreign_key="generated_content.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    completed_steps: int = Field(default=0)
+    last_step: int = Field(default=0)
+
+
+class LearningPathProgress(LearningPathProgressBase, table=True):
+    """Modelo de progreso de ruta de aprendizaje persistente en base de datos"""
+    __tablename__ = "learning_path_progress"
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+
+
+class LearningPathProgressCreate(LearningPathProgressBase):
+    """Schema para crear nuevo progreso de ruta de aprendizaje"""
+    pass
+
+
+class LearningPathProgressRead(LearningPathProgressBase):
+    """Schema para leer datos de progreso de ruta de aprendizaje"""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class LearningPathProgressUpdate(SQLModel):
+    """Schema para actualizar progreso de ruta de aprendizaje"""
+    completed_steps: int | None = Field(default=None)
+    last_step: int | None = Field(default=None)
