@@ -930,3 +930,165 @@ class QuizGenerationResponse(BaseModel):
         description="Timestamp when quiz was generated",
         examples=["2025-11-14T10:30:00Z"]
     )
+
+# Story 4.3: Quiz Submission Schemas
+
+class QuizSubmissionRequest(BaseModel):
+    """
+    Request model for quiz submission endpoint (Story 4.3, AC9, AC17).
+    
+    Contains user's answers to all quiz questions in the format:
+    {"1": "C", "2": "A", "3": "B", ...} where key is question number (1-indexed)
+    and value is the user's selected answer (A, B, C, or D).
+    """
+    answers: Dict[str, str] = Field(
+        ...,
+        description="User's answers as dict: question_number -> answer letter (A/B/C/D)",
+        examples=[{"1": "C", "2": "A", "3": "B"}]
+    )
+    
+    @field_validator('answers')
+    @classmethod
+    def validate_answers(cls, v):
+        """Validate answers format."""
+        if not isinstance(v, dict):
+            raise ValueError("answers must be a dictionary")
+        
+        for key, value in v.items():
+            # Validate key is numeric string
+            try:
+                int(key)
+            except ValueError:
+                raise ValueError(f"Question number must be numeric, got: {key}")
+            
+            # Validate value is a single letter A-D
+            if not isinstance(value, str) or value.upper() not in {"A", "B", "C", "D"}:
+                raise ValueError(f"Answer must be A, B, C, or D, got: {value}")
+        
+        return v
+
+
+class QuestionResult(BaseModel):
+    """
+    Individual question result (Story 4.3, AC11, AC13).
+
+    Contains user's answer, correct answer, whether it was correct, and explanation.
+    Includes full option text for better UX display.
+    """
+    question_number: int = Field(
+        ...,
+        description="Question number (1-indexed)",
+        ge=1,
+        examples=[1, 2, 3]
+    )
+    user_answer: str = Field(
+        ...,
+        description="User's selected answer (A/B/C/D)",
+        pattern="^[A-D]$",
+        examples=["C", "A"]
+    )
+    user_answer_text: str = Field(
+        ...,
+        description="Full text of user's selected option",
+        examples=["Opción A: Texto de la opción seleccionada"]
+    )
+    correct_answer: str = Field(
+        ...,
+        description="Correct answer (A/B/C/D)",
+        pattern="^[A-D]$",
+        examples=["A"]
+    )
+    correct_answer_text: str = Field(
+        ...,
+        description="Full text of the correct option",
+        examples=["Opción A: Texto de la opción correcta"]
+    )
+    is_correct: bool = Field(
+        ...,
+        description="Whether user's answer is correct",
+        examples=[False, True]
+    )
+    explanation: str = Field(
+        ...,
+        description="Explanation of the correct answer",
+        examples=["La respuesta correcta es A porque..."]
+    )
+
+
+class QuizSubmissionResponse(BaseModel):
+    """
+    Response model for quiz submission endpoint (Story 4.3, AC10, AC11).
+    
+    Contains score, percentage, pass status, and detailed results for each question.
+    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "quiz_id": 42,
+                    "score": 4,
+                    "total_questions": 5,
+                    "percentage": 80.0,
+                    "passed": True,
+                    "results": [
+                        {
+                            "question_number": 1,
+                            "user_answer": "C",
+                            "correct_answer": "C",
+                            "is_correct": True,
+                            "explanation": "Correcto. La política establece 15 días hábiles..."
+                        },
+                        {
+                            "question_number": 2,
+                            "user_answer": "A",
+                            "correct_answer": "B",
+                            "is_correct": False,
+                            "explanation": "Incorrecto. La respuesta correcta es B porque..."
+                        }
+                    ],
+                    "submitted_at": "2025-11-14T10:45:00Z"
+                }
+            ]
+        }
+    )
+    
+    quiz_id: int = Field(
+        ...,
+        description="ID of the quiz submitted",
+        ge=1,
+        examples=[42]
+    )
+    score: int = Field(
+        ...,
+        description="Number of correct answers",
+        ge=0,
+        examples=[4]
+    )
+    total_questions: int = Field(
+        ...,
+        description="Total number of questions in the quiz",
+        ge=1,
+        examples=[5]
+    )
+    percentage: float = Field(
+        ...,
+        description="Score percentage (0-100)",
+        ge=0.0,
+        le=100.0,
+        examples=[80.0]
+    )
+    passed: bool = Field(
+        ...,
+        description="Whether user passed (percentage >= 70%)",
+        examples=[True, False]
+    )
+    results: List[QuestionResult] = Field(
+        ...,
+        description="Detailed results for each question",
+        examples=[[]]
+    )
+    submitted_at: datetime = Field(
+        ...,
+        description="Timestamp when quiz was submitted",
+        examples=["2025-11-14T10:45:00Z"]
+    )

@@ -6,6 +6,7 @@ Provides health check and generation capabilities with proper
 error handling, logging, and rate limiting.
 """
 
+import asyncio
 import time
 import logging
 from datetime import datetime, timedelta, timezone
@@ -31,7 +32,9 @@ from app.schemas.ia import (
     SummaryGenerationRequest,
     SummaryGenerationResponse,
     QuizGenerationRequest,
-    QuizGenerationResponse
+    QuizGenerationResponse,
+    QuizSubmissionRequest,
+    QuizSubmissionResponse
 )
 
 # Import admin dependency for endpoint protection
@@ -1394,4 +1397,112 @@ async def generate_quiz(
         raise HTTPException(
             status_code=500,
             detail="Quiz generation failed. Please try again later."
+        )
+
+# Story 4.3: Quiz Submission Endpoint
+
+@router.post(
+    "/quiz/{quiz_id}/submit",
+    summary="Submit Quiz Answers and Get Score",
+    description="""Submit answers to a quiz and receive evaluated results (Story 4.3, AC9-AC11).
+
+Accepts user's answers and returns:
+- Score (number of correct answers)
+- Percentage (0-100)
+- Pass status (percentage >= 70%)
+- Detailed results for each question with explanations
+
+The endpoint automatically stores attempt in quiz_attempts table for audit trail.
+""",
+    responses={
+        200: {
+            "description": "Quiz submitted successfully and evaluated",
+        },
+        400: {
+            "description": "Invalid request or validation failed",
+        },
+        401: {"description": "Unauthenticated - authentication required"},
+        404: {
+            "description": "Quiz not found",
+        }
+    }
+)
+async def submit_quiz(
+    request: Request,
+    quiz_id: int,
+    submission: QuizSubmissionRequest,
+    db=Depends(get_session),
+    current_user=Depends(get_current_user)
+):
+    """Submit quiz answers and receive scored results."""
+    from app.services.quiz_service import QuizService
+    
+    start_time = time.time()
+    
+    try:
+        logger.info(
+            f"Quiz submission from user {current_user.id}: quiz_id={quiz_id}, "
+            f"answers_count={len(submission.answers)}"
+        )
+        
+        # Use QuizService to evaluate submission
+        quiz_service = QuizService(db)
+        result = await asyncio.to_thread(
+            quiz_service.submit_quiz,
+            quiz_id=quiz_id,
+            user_id=current_user.id,
+            answers=submission.answers
+        )
+        
+        # Build response
+        response_data = {
+            "quiz_id": result["quiz_id"],
+            "score": result["score"],
+            "total_questions": result["total_questions"],
+            "percentage": result["percentage"],
+            "passed": result["passed"],
+            "results": result["results"],
+            "submitted_at": result["submitted_at"]
+        }
+        
+        total_time = (time.time() - start_time) * 1000
+        
+        logger.info(
+            f"Quiz {quiz_id} submitted successfully by user {current_user.id} "
+            f"(score: {result['score']}/{result['total_questions']}, "
+            f"percentage: {result['percentage']:.1f}%, "
+            f"time: {total_time:.0f}ms)"
+        )
+        
+        return response_data
+        
+    except ValueError as e:
+        error_msg = str(e)
+        
+        if "no encontrado" in error_msg.lower() or "quiz" in error_msg.lower():
+            status_code = 404
+            logger.warning(f"Quiz not found or access denied: {error_msg}")
+        elif "acceso denegado" in error_msg.lower():
+            status_code = 403
+            logger.warning(f"Access denied to quiz: {error_msg}")
+        else:
+            status_code = 400
+            logger.warning(f"Invalid quiz submission: {error_msg}")
+        
+        raise HTTPException(status_code=status_code, detail=error_msg)
+        
+    except HTTPException:
+        raise
+        
+    except Exception as e:
+        total_time = (time.time() - start_time) * 1000
+        error_msg = f"Quiz submission failed: {str(e)}"
+        logger.error(
+            f"Unexpected error during quiz submission for user {current_user.id}, "
+            f"quiz {quiz_id}: {error_msg} (time: {total_time:.0f}ms)"
+        )
+        
+        raise HTTPException(
+            status_code=500,
+            detail="Quiz submission failed. Please try again later."
         )

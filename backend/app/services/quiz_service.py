@@ -410,3 +410,131 @@ Responde EXACTAMENTE en este formato JSON:
     def _estimate_time(self, num_questions: int) -> int:
         """Estimate time to complete quiz (AC15)."""
         return num_questions  # Simple 1 minute per question
+
+
+    def submit_quiz(
+        self,
+        quiz_id: int,
+        user_id: int,
+        answers: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """
+        Evaluate quiz submission and calculate score (Story 4.3, AC9-AC11).
+        
+        Args:
+            quiz_id: ID of the quiz being submitted
+            user_id: ID of user submitting
+            answers: Dict of {question_number: answer_letter} e.g. {"1": "C", "2": "A"}
+        
+        Returns:
+            Dict with score, percentage, passed, and detailed results
+        
+        Raises:
+            ValueError: If quiz not found or validation fails
+        """
+        from sqlmodel import select
+        from app.models.quiz import Quiz, QuizQuestion, QuizAttempt
+        
+        # Fetch quiz to validate it exists
+        quiz_stmt = select(Quiz).where(Quiz.id == quiz_id)
+        quiz = self.session.exec(quiz_stmt).first()
+
+        if not quiz:
+            raise ValueError(f"Quiz con ID {quiz_id} no encontrado")
+
+        if quiz.user_id != user_id:
+            raise ValueError("Acceso denegado: no es propietario del quiz")
+
+        # Fetch all questions for this quiz
+        questions_stmt = select(QuizQuestion).where(QuizQuestion.quiz_id == quiz_id)
+        questions = self.session.exec(questions_stmt).all()
+        
+        if not questions:
+            raise ValueError(f"No hay preguntas asociadas al quiz {quiz_id}")
+        
+        # Validate all questions have answers
+        if len(answers) != len(questions):
+            raise ValueError(f"Se requieren respuestas para todas las {len(questions)} preguntas")
+        
+        # Evaluate answers and build results
+        score = 0
+        results = []
+        
+        for idx, question in enumerate(questions, start=1):
+            question_num_str = str(idx)
+            
+            if question_num_str not in answers:
+                raise ValueError(f"Falta respuesta para pregunta {idx}")
+            
+            user_answer = answers[question_num_str].upper()
+            
+            # Validate user answer is A-D
+            if user_answer not in {"A", "B", "C", "D"}:
+                raise ValueError(f"Respuesta inválida para pregunta {idx}: {user_answer}")
+            
+            # Get the correct answer letter from options
+            # question.options_json is ["option A", "option B", "option C", "option D"]
+            # question.correct_answer is the text of the correct option
+            # We need to find which index it is
+            correct_index = None
+            user_index = None
+            
+            try:
+                # Map letter to index: A=0, B=1, C=2, D=3
+                user_index = ord(user_answer) - ord('A')
+                
+                # Find index of correct answer in options
+                if question.correct_answer in question.options_json:
+                    correct_index = question.options_json.index(question.correct_answer)
+                else:
+                    raise ValueError(f"Respuesta correcta no encontrada en opciones para pregunta {idx}")
+                
+                # Check if answer is correct
+                is_correct = user_index == correct_index
+                
+                if is_correct:
+                    score += 1
+                
+                # Build result for this question with option text
+                result = {
+                    "question_number": idx,
+                    "user_answer": user_answer,
+                    "user_answer_text": question.options_json[user_index] if user_index < len(question.options_json) else "",
+                    "correct_answer": chr(ord('A') + correct_index),
+                    "correct_answer_text": question.correct_answer,
+                    "is_correct": is_correct,
+                    "explanation": question.explanation
+                }
+                results.append(result)
+                
+            except (IndexError, ValueError) as e:
+                raise ValueError(f"Error evaluando pregunta {idx}: {str(e)}")
+        
+        # Calculate percentage and passed status
+        total_questions = len(questions)
+        percentage = (score / total_questions) * 100 if total_questions > 0 else 0
+        passed = percentage >= 70
+        
+        # Save attempt to database
+        attempt = QuizAttempt(
+            quiz_id=quiz_id,
+            user_id=user_id,
+            answers_json=answers,  # Store original format
+            score=score,
+            total_questions=total_questions,
+            percentage=percentage
+        )
+        
+        self.session.add(attempt)
+        self.session.commit()
+        self.session.refresh(attempt)
+        
+        return {
+            "quiz_id": quiz_id,
+            "score": score,
+            "total_questions": total_questions,
+            "percentage": percentage,
+            "passed": passed,
+            "results": results,
+            "submitted_at": attempt.timestamp.isoformat()
+        }

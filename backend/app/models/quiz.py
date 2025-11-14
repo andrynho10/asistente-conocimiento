@@ -102,3 +102,35 @@ class QuizQuestionUpdate(SQLModel):
     explanation: str | None = Field(default=None)
     difficulty: DifficultyLevel | None = Field(default=None)
     topic: str | None = Field(default=None)
+
+
+class QuizAttemptBase(SQLModel):
+    """Base model para QuizAttempt con campos comunes"""
+    quiz_id: int = Field(foreign_key="quiz.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    answers_json: dict[str, str] = Field(sa_type=JSON)  # {"1": "C", "2": "A", ...}
+    score: int
+    total_questions: int
+    percentage: float
+
+
+class QuizAttempt(QuizAttemptBase, table=True):
+    """Modelo de intento de quiz persistente en base de datos"""
+    __tablename__ = "quiz_attempts"
+
+    id: int | None = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True
+    )
+
+
+class QuizAttemptCreate(QuizAttemptBase):
+    """Schema para crear nuevo intento de quiz"""
+    pass
+
+
+class QuizAttemptRead(QuizAttemptBase):
+    """Schema para leer datos de intento de quiz"""
+    id: int
+    timestamp: datetime
