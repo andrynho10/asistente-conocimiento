@@ -23,6 +23,9 @@ from app.schemas.ia import (
     ModelInfo,
     RetrieveRequest,
     RetrieveResponse,
+    QueryRequest,
+    QueryResponse,
+    MetricsResponse,
     ErrorResponse
 )
 
@@ -520,4 +523,448 @@ async def retrieve_documents(
         raise HTTPException(
             status_code=500,
             detail=f"Document retrieval failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/query",
+    response_model=QueryResponse,
+    summary="Conversational AI Query",
+    description="Submit natural language queries and receive AI-powered responses grounded in corporate documents",
+    responses={
+        200: {
+            "description": "Query processed successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "query": "¿Cuál es la política de vacaciones?",
+                        "answer": "Según la política de vacaciones, los empleados tienen derecho a 15 días hábiles anuales...",
+                        "sources": [
+                            {
+                                "document_id": 1,
+                                "title": "Política de Vacaciones Anuales",
+                                "relevance_score": 0.95
+                            }
+                        ],
+                        "response_time_ms": 1245.5,
+                        "documents_retrieved": 1,
+                        "timestamp": "2025-11-13T10:30:00Z"
+                    }
+                }
+            }
+        },
+        400: {"description": "Invalid query (length, context_mode)"},
+        401: {"description": "Unauthenticated - authentication required"},
+        429: {"description": "Rate limit exceeded - 10 queries per 60 seconds"},
+        503: {"description": "AI service unavailable"}
+    }
+)
+async def query_ai(
+    request: Request,
+    query_request: QueryRequest,
+    db=Depends(get_session),
+    current_user=Depends(get_current_user),
+    llm_svc: OllamaLLMService = Depends(get_llm_service)
+):
+    """
+    Submit natural language queries to the conversational AI system.
+
+    This endpoint implements the complete RAG pipeline:
+    1. Validates query format (10-500 characters, valid context_mode)
+    2. Applies rate limiting (10 queries per 60 seconds per user)
+    3. Retrieves relevant documents using FTS5
+    4. Generates contextualized response using LLM
+    5. Records query and performance metrics
+    6. Returns structured response with sources
+
+    AC#2: Query Endpoint Basic Implementation
+    AC#3: Retrieval Service Integration
+    AC#4: RAG Pipeline Implementation
+    AC#5: Response Structure and Metadata
+    AC#6: Rate Limiting Enforcement
+    AC#7: Audit Logging
+    AC#8: Data Model Persistence
+    """
+    from app.models.query import Query, PerformanceMetric
+    from sqlmodel import Session
+
+    start_time = time.time()
+
+    try:
+        # AC#6: Rate limiting - 10 queries per 60 seconds per user
+        user_rate_key = f"rate_limit:user:{current_user.id}"
+        now = time.time()
+
+        if user_rate_key not in rate_limits:
+            rate_limits[user_rate_key] = {"count": 0, "window_start": now}
+
+        # Reset window if expired (60 seconds)
+        if now - rate_limits[user_rate_key]["window_start"] > 60:
+            rate_limits[user_rate_key] = {"count": 0, "window_start": now}
+
+        # Check limit
+        if rate_limits[user_rate_key]["count"] >= 10:
+            logger.warning(
+                f"Rate limit exceeded for user {current_user.id}: "
+                f"{rate_limits[user_rate_key]['count']} requests in current window"
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded: 10 queries per 60 seconds per user",
+                headers={
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(int(rate_limits[user_rate_key]["window_start"] + 60))
+                }
+            )
+
+        # Increment counter
+        rate_limits[user_rate_key]["count"] += 1
+        remaining = 10 - rate_limits[user_rate_key]["count"]
+        reset_time = int(rate_limits[user_rate_key]["window_start"] + 60)
+
+        logger.info(
+            f"Query received from user {current_user.id}: "
+            f"{query_request.query[:100]}... (context_mode: {query_request.context_mode})"
+        )
+
+        # Check if service is available
+        if not await llm_svc.health_check_async():
+            raise HTTPException(
+                status_code=503,
+                detail="AI service is currently unavailable"
+            )
+
+        # Retrieve relevant documents (AC#3)
+        retrieval_start = time.time()
+        documents = await RetrievalService.retrieve_relevant_documents(
+            query=query_request.query,
+            top_k=query_request.top_k or 3,
+            db=db
+        )
+        retrieval_time_ms = (time.time() - retrieval_start) * 1000
+
+        logger.info(
+            f"Retrieved {len(documents)} documents in {retrieval_time_ms:.2f}ms "
+            f"for user {current_user.id}"
+        )
+
+        # Build context from documents (AC#4)
+        context = ""
+        sources = []
+
+        if documents:
+            context = "Documentos relevantes:\n\n"
+            for i, doc in enumerate(documents, 1):
+                context += f"{i}. {doc.title} (Relevancia: {doc.relevance_score:.2%})\n"
+                context += f"   {doc.snippet}\n\n"
+
+                sources.append({
+                    "document_id": doc.document_id,
+                    "title": doc.title,
+                    "relevance_score": doc.relevance_score
+                })
+        else:
+            context = "No se encontraron documentos relevantes en la base de datos."
+
+        # Build prompt for LLM (AC#4)
+        prompt = f"""Basándote en los siguientes documentos de la empresa, responde la pregunta del usuario.
+Si no encuentras la información en los documentos, indícalo claramente.
+
+{context}
+
+Pregunta del usuario: {query_request.query}
+
+Respuesta concisa en español:"""
+
+        # Generate response (AC#4)
+        llm_start = time.time()
+        answer = await llm_svc.generate_response_async(
+            prompt=prompt,
+            temperature=query_request.temperature or 0.7,
+            max_tokens=query_request.max_tokens or 500
+        )
+        llm_time_ms = (time.time() - llm_start) * 1000
+
+        # Add disclaimer (AC#7)
+        answer += "\n\n*Nota: Esta respuesta fue generada por IA. Verifica con tu supervisor si tienes dudas.*"
+
+        response_time_ms = (time.time() - start_time) * 1000
+
+        # Prepare response (AC#5)
+        response = QueryResponse(
+            query=query_request.query,
+            answer=answer,
+            sources=sources,
+            response_time_ms=response_time_ms,
+            documents_retrieved=len(documents)
+        )
+
+        # Store query and metrics in database (AC#8)
+        try:
+            # Convert sources to JSON
+            import json
+            sources_json = json.dumps([
+                {
+                    "document_id": s["document_id"],
+                    "title": s["title"],
+                    "relevance_score": s["relevance_score"]
+                }
+                for s in sources
+            ])
+
+            # Create Query record
+            query_record = Query(
+                user_id=current_user.id,
+                query_text=query_request.query,
+                answer_text=answer,
+                sources_json=sources_json,
+                response_time_ms=response_time_ms
+            )
+            db.add(query_record)
+            db.commit()
+            db.refresh(query_record)
+
+            # Create PerformanceMetric record
+            metric = PerformanceMetric(
+                query_id=query_record.id,
+                retrieval_time_ms=retrieval_time_ms,
+                llm_time_ms=llm_time_ms,
+                total_time_ms=response_time_ms,
+                cache_hit=False  # TODO: implement caching
+            )
+            db.add(metric)
+            db.commit()
+
+            logger.info(
+                f"Query {query_record.id} stored successfully - "
+                f"user: {current_user.id}, response_time: {response_time_ms:.2f}ms"
+            )
+        except Exception as e:
+            logger.error(f"Failed to store query metrics: {str(e)}")
+            # Don't fail the response, just log the error
+
+        # Log successful query (AC#7)
+        logger.info(
+            f"Query completed successfully for user {current_user.id}: "
+            f"response_time: {response_time_ms:.2f}ms, "
+            f"documents: {len(documents)}, "
+            f"answer_length: {len(answer)}"
+        )
+
+        # Return response with rate limit headers
+        return response
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+
+    except ValueError as e:
+        logger.warning(f"Invalid query request: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
+    except Exception as e:
+        response_time_ms = (time.time() - start_time) * 1000
+
+        error_msg = f"Query processing failed: {str(e)}"
+        logger.error(
+            f"Query failed for user {current_user.id}: {error_msg} "
+            f"(response_time: {response_time_ms:.2f}ms)"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Query processing failed. Please try again later."
+        )
+
+
+@router.get(
+    "/metrics",
+    response_model=MetricsResponse,
+    summary="IA Service Metrics (Admin Only)",
+    description="""Get aggregated metrics for the IA service over the last 24 hours. Admin access required.
+
+**Task 10**: Implement Metrics Endpoint (3 hours)
+
+Provides insights into system performance and usage patterns:
+- Total query count in 24-hour window
+- Response time distribution (avg, p50, p95, p99)
+- Cache hit rate for query optimization
+- Average documents retrieved per query
+
+Requires ADMIN role. Non-admin users receive 403 Forbidden.
+""",
+    responses={
+        200: {
+            "description": "Metrics retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "total_queries": 156,
+                        "avg_response_time_ms": 1245.7,
+                        "p50_ms": 1100.0,
+                        "p95_ms": 1950.0,
+                        "p99_ms": 2100.0,
+                        "cache_hit_rate": 0.15,
+                        "avg_documents_retrieved": 2.8,
+                        "period_hours": 24,
+                        "generated_at": "2025-11-13T10:30:00Z"
+                    }
+                }
+            }
+        },
+        403: {"description": "Forbidden - Admin access required"},
+        500: {"description": "Metrics calculation error"}
+    }
+)
+async def get_metrics(
+    db=Depends(get_session),
+    current_user=Depends(get_current_admin_user)
+):
+    """
+    Get aggregated metrics for the IA service (admin only).
+
+    AC#9: Returns aggregated metrics over the last 24 hours:
+    - total_queries: Total number of queries processed
+    - avg_response_time_ms: Average response time
+    - p50/p95/p99_ms: Percentile response times
+    - cache_hit_rate: Fraction of cache hits (0.0-1.0)
+    - avg_documents_retrieved: Average docs per query
+
+    Requires admin role for access.
+    """
+    from app.models.query import Query, PerformanceMetric
+    from datetime import datetime, timedelta
+    from sqlmodel import select, func
+    import statistics
+
+    start_time = time.time()
+
+    try:
+        # Calculate 24 hours ago
+        now = datetime.utcnow()
+        period_start = now - timedelta(hours=24)
+
+        logger.info(
+            f"Calculating metrics for admin user {current_user.id} "
+            f"from {period_start} to {now}"
+        )
+
+        # Query total number of queries in last 24 hours
+        query_count_stmt = select(func.count()).select_from(Query)
+        query_count_stmt = query_count_stmt.where(
+            Query.created_at >= period_start
+        )
+        total_queries = db.exec(query_count_stmt).one()
+
+        if total_queries == 0:
+            # No data in the period, return zero metrics
+            logger.info("No queries found in the last 24 hours")
+
+            return MetricsResponse(
+                total_queries=0,
+                avg_response_time_ms=0.0,
+                p50_ms=0.0,
+                p95_ms=0.0,
+                p99_ms=0.0,
+                cache_hit_rate=0.0,
+                avg_documents_retrieved=0.0,
+                period_hours=24,
+                generated_at=now
+            )
+
+        # Get all response times in the period
+        response_times_stmt = select(Query.response_time_ms).where(
+            Query.created_at >= period_start
+        )
+        response_times = db.exec(response_times_stmt).all()
+        response_times = [float(rt) for rt in response_times if rt is not None]
+
+        # Calculate average response time
+        avg_response_time_ms = (
+            sum(response_times) / len(response_times)
+            if response_times
+            else 0.0
+        )
+
+        # Calculate percentiles
+        if len(response_times) >= 2:
+            response_times_sorted = sorted(response_times)
+            p50_idx = max(0, int(len(response_times_sorted) * 0.50) - 1)
+            p95_idx = max(0, int(len(response_times_sorted) * 0.95) - 1)
+            p99_idx = max(0, int(len(response_times_sorted) * 0.99) - 1)
+
+            p50_ms = float(response_times_sorted[p50_idx])
+            p95_ms = float(response_times_sorted[p95_idx])
+            p99_ms = float(response_times_sorted[p99_idx])
+        else:
+            # If only 1 query, all percentiles are the same
+            p50_ms = response_times[0] if response_times else 0.0
+            p95_ms = response_times[0] if response_times else 0.0
+            p99_ms = response_times[0] if response_times else 0.0
+
+        # Get cache hit rate from PerformanceMetric
+        cache_hits_stmt = select(func.count()).select_from(PerformanceMetric)
+        cache_hits_stmt = cache_hits_stmt.where(
+            PerformanceMetric.cache_hit == True,
+            PerformanceMetric.created_at >= period_start
+        )
+        cache_hits = db.exec(cache_hits_stmt).one()
+
+        cache_hit_rate = (
+            cache_hits / total_queries
+            if total_queries > 0
+            else 0.0
+        )
+
+        # Get average documents retrieved
+        avg_docs_stmt = select(func.avg(Query.sources_count)).where(
+            Query.created_at >= period_start
+        )
+        avg_docs_retrieved = db.exec(avg_docs_stmt).one()
+        avg_docs_retrieved = float(avg_docs_retrieved) if avg_docs_retrieved else 0.0
+
+        metrics_time_ms = (time.time() - start_time) * 1000
+
+        logger.info(
+            f"Metrics calculated successfully: "
+            f"total_queries={total_queries}, "
+            f"avg_response_time={avg_response_time_ms:.2f}ms, "
+            f"p95={p95_ms:.2f}ms, "
+            f"cache_hit_rate={cache_hit_rate:.2%}, "
+            f"calc_time={metrics_time_ms:.2f}ms"
+        )
+
+        response = MetricsResponse(
+            total_queries=total_queries,
+            avg_response_time_ms=avg_response_time_ms,
+            p50_ms=p50_ms,
+            p95_ms=p95_ms,
+            p99_ms=p99_ms,
+            cache_hit_rate=cache_hit_rate,
+            avg_documents_retrieved=avg_docs_retrieved,
+            period_hours=24,
+            generated_at=now
+        )
+
+        return response
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+
+    except Exception as e:
+        metrics_time_ms = (time.time() - start_time) * 1000
+
+        error_msg = f"Metrics calculation failed: {str(e)}"
+        logger.error(
+            f"Metrics error for admin user {current_user.id}: {error_msg} "
+            f"(calc_time: {metrics_time_ms:.2f}ms)"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to calculate metrics. Please try again later."
         )

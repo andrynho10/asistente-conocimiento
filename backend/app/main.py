@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_db_and_tables
 from app.auth.routes import router as auth_router
@@ -9,6 +10,15 @@ from app.routes.ia import router as ia_router
 from app.auth.models import HealthResponse
 from app.core.config import get_settings
 from app.services.llm_service import get_llm_service
+from app.exceptions import (
+    IAServiceException,
+    QueryValidationError,
+    OllamaUnavailableError,
+    RateLimitError,
+    LLMGenerationError,
+    DatabaseError,
+    RetrievalServiceError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +76,124 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(knowledge_router)
 app.include_router(ia_router)
+
+
+# Exception handlers for IA service (Task 11: Error Handling)
+@app.exception_handler(QueryValidationError)
+async def query_validation_error_handler(request: Request, exc: QueryValidationError):
+    """
+    AC#10: Malformed requests return clear error messages.
+    AC#2: Returns 400 for invalid query.
+    """
+    logger.warning(f"Query validation error: {exc.message}")
+    return JSONResponse(
+        status_code=exc.http_status_code,
+        content={
+            "error": "Invalid request",
+            "detail": exc.detail,
+            "code": exc.error_code
+        }
+    )
+
+
+@app.exception_handler(OllamaUnavailableError)
+async def ollama_unavailable_handler(request: Request, exc: OllamaUnavailableError):
+    """
+    AC#10: Service gracefully handles Ollama unavailability.
+    AC#1: Returns 503 when Ollama unavailable.
+    """
+    logger.error(f"Ollama service unavailable: {exc.message}")
+    return JSONResponse(
+        status_code=exc.http_status_code,
+        content={
+            "error": "Service unavailable",
+            "detail": exc.detail,
+            "code": exc.error_code
+        }
+    )
+
+
+@app.exception_handler(RateLimitError)
+async def rate_limit_error_handler(request: Request, exc: RateLimitError):
+    """
+    AC#6: Rate limiting returns 429 with error message.
+    """
+    logger.warning(f"Rate limit exceeded: {exc.message}")
+    return JSONResponse(
+        status_code=exc.http_status_code,
+        content={
+            "error": "Too many requests",
+            "detail": exc.detail,
+            "code": exc.error_code
+        }
+    )
+
+
+@app.exception_handler(LLMGenerationError)
+async def llm_generation_error_handler(request: Request, exc: LLMGenerationError):
+    """
+    AC#10: Network timeouts from Ollama handled with 503.
+    Returns generic error message without exposing internal details.
+    """
+    logger.error(f"LLM generation error: {exc.message}")
+    return JSONResponse(
+        status_code=exc.http_status_code,
+        content={
+            "error": "Generation failed",
+            "detail": exc.detail,
+            "code": exc.error_code
+        }
+    )
+
+
+@app.exception_handler(DatabaseError)
+async def database_error_handler(request: Request, exc: DatabaseError):
+    """
+    AC#10: Database errors logged and user receives generic error message.
+    No stack traces or internal details exposed.
+    """
+    logger.error(f"Database error: {exc.message}")
+    return JSONResponse(
+        status_code=exc.http_status_code,
+        content={
+            "error": "Database error",
+            "detail": exc.detail,
+            "code": exc.error_code
+        }
+    )
+
+
+@app.exception_handler(RetrievalServiceError)
+async def retrieval_service_error_handler(request: Request, exc: RetrievalServiceError):
+    """
+    AC#3: Retrieval service error handling.
+    """
+    logger.error(f"Retrieval service error: {exc.message}")
+    return JSONResponse(
+        status_code=exc.http_status_code,
+        content={
+            "error": "Retrieval failed",
+            "detail": exc.detail,
+            "code": exc.error_code
+        }
+    )
+
+
+@app.exception_handler(IAServiceException)
+async def ia_service_exception_handler(request: Request, exc: IAServiceException):
+    """
+    Catch-all handler for any other IA service exceptions.
+    """
+    logger.error(f"IA service error: {exc.message}")
+    return JSONResponse(
+        status_code=exc.http_status_code,
+        content={
+            "error": "Service error",
+            "detail": exc.detail,
+            "code": exc.error_code
+        }
+    )
+
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():

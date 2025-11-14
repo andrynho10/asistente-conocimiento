@@ -444,6 +444,203 @@ class RAGResponse(BaseModel):
     )
 
 
+class QueryRequest(BaseModel):
+    """
+    Request model for conversational query endpoint.
+
+    AC#2: Defines parameters for natural language queries with
+    context mode selection and validation.
+    """
+    query: str = Field(
+        ...,
+        description="User's natural language query",
+        min_length=10,
+        max_length=500,
+        examples=["¿Cuál es la política de vacaciones?", "Necesito información sobre procedimientos de contratación"]
+    )
+    context_mode: str = Field(
+        "general",
+        description="Context mode for retrieval (general: broad search, specific: focused search)",
+        pattern="^(general|specific)$",
+        examples=["general", "specific"]
+    )
+    top_k: Optional[int] = Field(
+        3,
+        description="Number of documents to retrieve for context",
+        ge=1,
+        le=10,
+        examples=[3, 5]
+    )
+    temperature: Optional[float] = Field(
+        0.7,
+        description="LLM temperature for response generation (0.0-1.0)",
+        ge=0.0,
+        le=1.0,
+        examples=[0.7]
+    )
+    max_tokens: Optional[int] = Field(
+        500,
+        description="Maximum tokens in LLM response",
+        ge=1,
+        le=4096,
+        examples=[500]
+    )
+
+    @field_validator('query')
+    @classmethod
+    def validate_query(cls, v):
+        """Validate query content."""
+        if not v or not v.strip():
+            raise ValueError('Query cannot be empty or whitespace only')
+        return v.strip()
+
+
+class QueryResponse(BaseModel):
+    """
+    Response model for conversational query endpoint.
+
+    AC#5: Implements the complete response structure with answer,
+    sources, metadata, and performance metrics.
+    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "query": "¿Cuál es la política de vacaciones?",
+                    "answer": "Según la política de vacaciones, los empleados tienen derecho a 15 días hábiles anuales...",
+                    "sources": [
+                        {
+                            "document_id": 1,
+                            "title": "Política de Vacaciones Anuales",
+                            "relevance_score": 0.95
+                        }
+                    ],
+                    "response_time_ms": 1245.5,
+                    "documents_retrieved": 1,
+                    "timestamp": "2025-11-13T10:30:00Z"
+                }
+            ]
+        }
+    )
+
+    query: str = Field(
+        ...,
+        description="Original query provided by user",
+        examples=["¿Cuál es la política de vacaciones?"]
+    )
+    answer: str = Field(
+        ...,
+        description="AI-generated answer grounded in retrieved documents",
+        examples=["Según los documentos, los empleados tienen derecho a 15 días de vacaciones anuales..."]
+    )
+    sources: List[SourceInfo] = Field(
+        default_factory=list,
+        description="List of source documents used to generate the answer. AC#5 structure.",
+        examples=[[{
+            "document_id": 1,
+            "title": "Política de Vacaciones",
+            "relevance_score": 0.95
+        }]]
+    )
+    response_time_ms: float = Field(
+        ...,
+        description="Total response time in milliseconds. AC#5: metric for RNF2 (<2s P95).",
+        ge=0,
+        examples=[1245.5]
+    )
+    documents_retrieved: int = Field(
+        ...,
+        description="Number of documents retrieved in retrieval phase. AC#5: metric for logging.",
+        ge=0,
+        examples=[1, 3]
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp of response generation in ISO format",
+        examples=["2025-11-13T10:30:00Z"]
+    )
+
+
+class MetricsResponse(BaseModel):
+    """
+    Metrics endpoint response model (admin only).
+
+    AC#9: Returns aggregated metrics over the last 24 hours,
+    including query volume, response times (p50/p95/p99), and cache stats.
+    """
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "total_queries": 156,
+                    "avg_response_time_ms": 1245.7,
+                    "p50_ms": 1100.0,
+                    "p95_ms": 1950.0,
+                    "p99_ms": 2100.0,
+                    "cache_hit_rate": 0.15,
+                    "avg_documents_retrieved": 2.8,
+                    "period_hours": 24,
+                    "generated_at": "2025-11-13T10:30:00Z"
+                }
+            ]
+        }
+    )
+
+    total_queries: int = Field(
+        ...,
+        description="Total number of queries processed in the period",
+        ge=0,
+        examples=[156, 450, 1200]
+    )
+    avg_response_time_ms: float = Field(
+        ...,
+        description="Average response time in milliseconds",
+        ge=0,
+        examples=[1245.7, 1100.0, 2000.5]
+    )
+    p50_ms: float = Field(
+        ...,
+        description="50th percentile (median) response time in milliseconds",
+        ge=0,
+        examples=[1100.0, 950.0, 1500.0]
+    )
+    p95_ms: float = Field(
+        ...,
+        description="95th percentile response time in milliseconds (RNF2 target: <2000ms)",
+        ge=0,
+        examples=[1950.0, 1850.0, 1999.0]
+    )
+    p99_ms: float = Field(
+        ...,
+        description="99th percentile response time in milliseconds",
+        ge=0,
+        examples=[2100.0, 2200.0, 2500.0]
+    )
+    cache_hit_rate: float = Field(
+        ...,
+        description="Cache hit rate as a fraction (0.0-1.0)",
+        ge=0.0,
+        le=1.0,
+        examples=[0.15, 0.25, 0.42]
+    )
+    avg_documents_retrieved: float = Field(
+        ...,
+        description="Average number of documents retrieved per query",
+        ge=0,
+        examples=[2.8, 3.0, 2.5]
+    )
+    period_hours: int = Field(
+        default=24,
+        description="Time period for metrics in hours",
+        ge=1,
+        examples=[24, 168]
+    )
+    generated_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp when metrics were generated"
+    )
+
+
 class ErrorResponse(BaseModel):
     """
     Standard error response model for IA endpoints.
