@@ -11,6 +11,8 @@ from app.routes.ia import router as ia_router
 from app.auth.models import HealthResponse
 from app.core.config import get_settings
 from app.services.llm_service import get_llm_service
+# Ensure models are imported so SQLModel creates the tables
+from app.models.query import Query, PerformanceMetric  # noqa: F401
 from app.exceptions import (
     IAServiceException,
     QueryValidationError,

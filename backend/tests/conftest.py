@@ -32,6 +32,21 @@ from app.core.security import get_password_hash
 from app.main import app
 from app.database import get_session
 from app import database  # Importar módulo completo para monkey-patching
+import app.services.rag_service as rag_service_module
+import app.services.retrieval_service as retrieval_service_module
+
+
+@pytest.fixture(autouse=True)
+def clear_all_caches():
+    """Clear all caches before each test to prevent cache pollution between tests."""
+    # Clear response cache from RAG service
+    rag_service_module.response_cache.invalidate()
+    # Clear retrieval cache from retrieval service
+    retrieval_service_module.retrieval_cache.invalidate()
+    yield
+    # Cleanup after test
+    rag_service_module.response_cache.invalidate()
+    retrieval_service_module.retrieval_cache.invalidate()
 
 
 @pytest.fixture

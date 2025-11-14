@@ -23,12 +23,16 @@ if TYPE_CHECKING:
 
 
 class QueryBase(SQLModel):
-    """Base model for Query with common fields"""
+    """Base model for Query with common fields
+
+    Task 6: Added cache_hit field to track caching performance (AC#2)
+    """
     query_text: str = Field(max_length=500, index=True)
     answer_text: str
     sources_json: str  # JSON array of {document_id, title, relevance_score}
     response_time_ms: float = Field(ge=0)
     sources_count: int = Field(default=0, ge=0)  # Number of documents retrieved
+    cache_hit: bool = Field(default=False, description="Whether response was served from cache (Task 6: AC#2)")
 
 
 class Query(QueryBase, table=True):

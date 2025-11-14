@@ -23,9 +23,20 @@ from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from sqlmodel import Session, create_engine, SQLModel
 from sqlmodel.pool import StaticPool
 
-from app.services.rag_service import RAGService
+from app.services.rag_service import RAGService, response_cache, retrieval_cache
 from app.services.llm_service import OllamaLLMService
 from app.models.document import SearchResult
+
+
+@pytest.fixture
+def clear_cache():
+    """Clear response and retrieval caches before each test."""
+    response_cache.invalidate()  # Clear all
+    retrieval_cache.invalidate()  # Clear all
+    yield
+    # Cleanup after test
+    response_cache.invalidate()
+    retrieval_cache.invalidate()
 
 
 @pytest.fixture
@@ -600,7 +611,7 @@ class TestEndToEndRAGPipeline:
     """End-to-end integration tests."""
 
     @pytest.mark.asyncio
-    async def test_complete_rag_flow_with_documents(self, test_db, mock_llm_service, sample_search_results):
+    async def test_complete_rag_flow_with_documents(self, test_db, mock_llm_service, sample_search_results, clear_cache):
         """
         Complete end-to-end test with documents retrieved and LLM called.
         """

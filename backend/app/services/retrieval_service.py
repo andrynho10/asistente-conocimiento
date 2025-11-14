@@ -14,6 +14,7 @@ from typing import List, Optional, Set
 from sqlmodel import Session, text
 
 from app.models.document import SearchResult
+from app.services.cache_service import CacheService
 
 # Configurar logging estructurado
 logger = logging.getLogger(__name__)
@@ -55,6 +56,10 @@ SPANISH_SYNONYMS = {
     'implementación': ['aplicación', 'ejecución', 'puesta en marcha'],
     'requerimiento': ['necesidad', 'requisito', 'condición', 'especificación']
 }
+
+# Cache Configuration (AC#3)
+RETRIEVAL_CACHE_TTL_SECONDS = 600  # 10 minutes (documents change less frequently)
+retrieval_cache = CacheService(max_size=100)  # Retrieval cache for document searches
 
 
 class RetrievalService:
@@ -101,6 +106,18 @@ class RetrievalService:
             ...     print(f"{doc.title}: {doc.relevance_score}")
         """
         start_time = datetime.now()
+
+        # AC#3: Check retrieval cache first (for identical normalized queries)
+        cache_key = CacheService.generate_cache_key(query)
+        cached_results = retrieval_cache.get(cache_key)
+        if cached_results is not None:
+            logger.debug(json.dumps({
+                "event": "retrieval_cache_hit",
+                "cache_type": "retrieval",
+                "documents_returned": len(cached_results),
+                "query_hash": cache_key[:8]
+            }))
+            return cached_results
 
         # Validar parámetros
         if not query or len(query.strip()) < 2:
@@ -242,6 +259,9 @@ class RetrievalService:
                     "min_relevance": round(min(r.relevance_score for r in results), 3) if results else 0.0
                 })
             )
+
+            # AC#3: Store results in retrieval cache for future identical queries
+            retrieval_cache.set(cache_key, results, ttl_seconds=RETRIEVAL_CACHE_TTL_SECONDS)
 
             return results
 

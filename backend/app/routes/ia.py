@@ -145,7 +145,11 @@ async def health_check(
 
     This endpoint verifies that the Ollama service is running and
     the configured model is available. It returns detailed information
-    about the service status including response times.
+    about the service status including response times and cache statistics.
+
+    Task 10 Addition:
+    - Extends response to include cache_stats (cache_size, hit_rate, memory_usage_mb)
+    - Provides visibility into caching layer performance (AC#2)
     """
     from datetime import datetime
 
@@ -169,17 +173,46 @@ async def health_check(
             ollama_version = await llm_svc.get_ollama_version()
             model_info = llm_svc.get_model_info()
 
+            # Task 10: Get cache statistics from CacheService (AC#2)
+            from app.services.rag_service import response_cache, retrieval_cache
+
+            response_cache_stats = response_cache.get_stats()
+            retrieval_cache_stats = retrieval_cache.get_stats()
+
+            # Combine statistics from both caches
+            total_cache_size = response_cache_stats.get("size", 0) + retrieval_cache_stats.get("size", 0)
+            total_hits = response_cache_stats.get("hits", 0) + retrieval_cache_stats.get("hits", 0)
+            total_misses = response_cache_stats.get("misses", 0) + retrieval_cache_stats.get("misses", 0)
+
+            # Calculate overall hit rate
+            total_requests = total_hits + total_misses
+            cache_hit_rate = (total_hits / total_requests) if total_requests > 0 else 0.0
+
+            # Estimate memory usage (approximate: 1KB per entry average)
+            memory_usage_mb = round((total_cache_size * 1.0) / 1024, 2)
+
+            # Build cache_stats object
+            cache_stats = {
+                "cache_size": total_cache_size,
+                "hit_rate": round(cache_hit_rate, 4),
+                "memory_usage_mb": memory_usage_mb,
+                "response_cache_size": response_cache_stats.get("size", 0),
+                "retrieval_cache_size": retrieval_cache_stats.get("size", 0)
+            }
+
             response = HealthResponse(
                 status="ok",
                 model=llm_svc.model,
                 ollama_version=ollama_version,
                 available_at=now,
-                response_time_ms=response_time_ms
+                response_time_ms=response_time_ms,
+                cache_stats=cache_stats  # Task 10: Include cache statistics
             )
 
             logger.info(
                 f"IA health check successful - model: {llm_svc.model}, "
-                f"version: {ollama_version}, response_time: {response_time_ms:.2f}ms"
+                f"version: {ollama_version}, response_time: {response_time_ms:.2f}ms, "
+                f"cache_hit_rate: {cache_hit_rate:.2%}, cache_size: {total_cache_size}"
             )
 
             return response
@@ -573,21 +606,27 @@ async def query_ai(
     This endpoint implements the complete RAG pipeline:
     1. Validates query format (10-500 characters, valid context_mode)
     2. Applies rate limiting (10 queries per 60 seconds per user)
-    3. Retrieves relevant documents using FTS5
-    4. Generates contextualized response using LLM
-    5. Records query and performance metrics
-    6. Returns structured response with sources
+    3. Executes RAG pipeline (retrieval + generation with caching)
+    4. Records query and performance metrics with cache_hit tracking
+    5. Returns structured response with sources and timing info
 
-    AC#2: Query Endpoint Basic Implementation
+    AC#2: Query Endpoint with Response Caching
     AC#3: Retrieval Service Integration
-    AC#4: RAG Pipeline Implementation
+    AC#4: RAG Pipeline Implementation via RAGService
     AC#5: Response Structure and Metadata
     AC#6: Rate Limiting Enforcement
     AC#7: Audit Logging
-    AC#8: Data Model Persistence
+    AC#8: Performance Metrics Recording (Task 6)
+
+    Task 6 Implementation:
+    - Uses RAGService.rag_query() which includes cache_hit flag
+    - Extracts timing metrics: retrieval_time_ms, llm_time_ms
+    - Records both Query and PerformanceMetric records atomically
     """
     from app.models.query import Query, PerformanceMetric
+    from app.services.rag_service import RAGService
     from sqlmodel import Session
+    import json
 
     start_time = time.time()
 
@@ -635,80 +674,43 @@ async def query_ai(
                 detail="AI service is currently unavailable"
             )
 
-        # Retrieve relevant documents (AC#3)
-        retrieval_start = time.time()
-        documents = await RetrievalService.retrieve_relevant_documents(
-            query=query_request.query,
+        # Execute RAG pipeline using RAGService (Task 6: integrates caching + metrics)
+        rag_response = await RAGService.rag_query(
+            user_query=query_request.query,
+            user_id=current_user.id,
+            session=db,
+            llm_service=llm_svc,
             top_k=query_request.top_k or 3,
-            db=db
-        )
-        retrieval_time_ms = (time.time() - retrieval_start) * 1000
-
-        logger.info(
-            f"Retrieved {len(documents)} documents in {retrieval_time_ms:.2f}ms "
-            f"for user {current_user.id}"
-        )
-
-        # Build context from documents (AC#4)
-        context = ""
-        sources = []
-
-        if documents:
-            context = "Documentos relevantes:\n\n"
-            for i, doc in enumerate(documents, 1):
-                context += f"{i}. {doc.title} (Relevancia: {doc.relevance_score:.2%})\n"
-                context += f"   {doc.snippet}\n\n"
-
-                sources.append({
-                    "document_id": doc.document_id,
-                    "title": doc.title,
-                    "relevance_score": doc.relevance_score
-                })
-        else:
-            context = "No se encontraron documentos relevantes en la base de datos."
-
-        # Build prompt for LLM (AC#4)
-        prompt = f"""Basándote en los siguientes documentos de la empresa, responde la pregunta del usuario.
-Si no encuentras la información en los documentos, indícalo claramente.
-
-{context}
-
-Pregunta del usuario: {query_request.query}
-
-Respuesta concisa en español:"""
-
-        # Generate response (AC#4)
-        llm_start = time.time()
-        answer = await llm_svc.generate_response_async(
-            prompt=prompt,
             temperature=query_request.temperature or 0.7,
             max_tokens=query_request.max_tokens or 500
         )
-        llm_time_ms = (time.time() - llm_start) * 1000
 
-        # Add disclaimer (AC#7)
-        answer += "\n\n*Nota: Esta respuesta fue generada por IA. Verifica con tu supervisor si tienes dudas.*"
+        # Extract timing metrics and cache_hit from RAG response
+        retrieval_time_ms = rag_response.get("retrieval_time_ms", 0.0)
+        llm_time_ms = rag_response.get("llm_time_ms", 0.0)
+        response_time_ms = rag_response.get("response_time_ms", (time.time() - start_time) * 1000)
+        cache_hit = rag_response.get("cache_hit", False)
 
-        response_time_ms = (time.time() - start_time) * 1000
+        # Build source list from RAG response
+        sources = rag_response.get("sources", [])
 
-        # Prepare response (AC#5)
+        # Prepare response
         response = QueryResponse(
             query=query_request.query,
-            answer=answer,
+            answer=rag_response["answer"],
             sources=sources,
             response_time_ms=response_time_ms,
-            documents_retrieved=len(documents)
+            documents_retrieved=rag_response.get("documents_retrieved", 0)
         )
 
-        # Store query and metrics in database (AC#8)
+        # Task 6: Store query and metrics in database (AC#8)
         try:
             # Convert sources to JSON
-            import json
             sources_json = json.dumps([
                 {
-                    "document_id": s["document_id"],
-                    "title": s["title"],
-                    "relevance_score": s["relevance_score"]
+                    "document_id": s.get("document_id"),
+                    "title": s.get("title"),
+                    "relevance_score": s.get("relevance_score")
                 }
                 for s in sources
             ])
@@ -717,29 +719,31 @@ Respuesta concisa en español:"""
             query_record = Query(
                 user_id=current_user.id,
                 query_text=query_request.query,
-                answer_text=answer,
+                answer_text=rag_response["answer"],
                 sources_json=sources_json,
                 response_time_ms=response_time_ms,
-                sources_count=len(sources)  # Number of documents retrieved
+                sources_count=len(sources),
+                cache_hit=cache_hit  # Task 6: Track cache hit in Query record
             )
             db.add(query_record)
             db.commit()
             db.refresh(query_record)
 
-            # Create PerformanceMetric record
+            # Create PerformanceMetric record (Task 6: AC#8 detailed metrics)
             metric = PerformanceMetric(
                 query_id=query_record.id,
                 retrieval_time_ms=retrieval_time_ms,
                 llm_time_ms=llm_time_ms,
                 total_time_ms=response_time_ms,
-                cache_hit=False  # TODO: implement caching
+                cache_hit=cache_hit  # Task 6: Record actual cache_hit flag
             )
             db.add(metric)
             db.commit()
 
             logger.info(
                 f"Query {query_record.id} stored successfully - "
-                f"user: {current_user.id}, response_time: {response_time_ms:.2f}ms"
+                f"user: {current_user.id}, response_time: {response_time_ms:.2f}ms, "
+                f"cache_hit: {cache_hit}"
             )
         except Exception as e:
             logger.error(f"Failed to store query metrics: {str(e)}")
@@ -749,8 +753,8 @@ Respuesta concisa en español:"""
         logger.info(
             f"Query completed successfully for user {current_user.id}: "
             f"response_time: {response_time_ms:.2f}ms, "
-            f"documents: {len(documents)}, "
-            f"answer_length: {len(answer)}"
+            f"documents: {rag_response.get('documents_retrieved', 0)}, "
+            f"cache_hit: {cache_hit}"
         )
 
         # Return response with rate limit headers

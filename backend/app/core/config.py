@@ -58,6 +58,44 @@ class Settings(BaseSettings):
         description="Tamaño del contexto para el modelo LLM"
     )
 
+    # Performance & Caching Configuration (Story 3.6: Task 8)
+    retrieval_timeout_ms: int = Field(
+        default=500,
+        ge=100,
+        le=10000,
+        description="Timeout para búsqueda de documentos (ms). Si se excede, retorna resultados parciales."
+    )
+    llm_inference_timeout_s: int = Field(
+        default=10,
+        ge=1,
+        le=60,
+        description="Timeout para inferencia LLM (segundos). Si se excede, lanza excepción."
+    )
+    response_cache_ttl_seconds: int = Field(
+        default=300,
+        ge=60,
+        le=3600,
+        description="TTL para caché de respuestas (5 minutos por defecto, AC#2)"
+    )
+    retrieval_cache_ttl_seconds: int = Field(
+        default=600,
+        ge=60,
+        le=3600,
+        description="TTL para caché de búsqueda de documentos (10 minutos por defecto, AC#3)"
+    )
+    max_cache_size: int = Field(
+        default=100,
+        ge=10,
+        le=1000,
+        description="Tamaño máximo de caché (entradas LRU, AC#2)"
+    )
+    max_context_tokens: int = Field(
+        default=2000,
+        ge=500,
+        le=8000,
+        description="Máximo de tokens en contexto augmentado (AC#5 context pruning)"
+    )
+
     # Development Settings
     fastapi_env: str = Field(
         default="development",

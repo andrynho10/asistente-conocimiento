@@ -22,15 +22,25 @@ from sqlmodel import Session
 
 from app.services.retrieval_service import RetrievalService
 from app.services.llm_service import OllamaLLMService
+from app.services.cache_service import CacheService
 from app.models.document import SearchResult
 
 logger = logging.getLogger(__name__)
 
 # RAG Configuration Constants
 RAG_DEFAULT_TOP_K = 3
-RAG_CONTEXT_LIMIT = 2000  # Characters
+RAG_CONTEXT_LIMIT = 2000  # Characters (legacy, now using token limit)
+MAX_CONTEXT_TOKENS = 2000  # Token limit for context pruning (AC#5)
 RELEVANCE_THRESHOLD = 0.1  # Minimum relevance score to use document
 RAG_DISCLAIMER = "\n\n*Nota: Esta respuesta fue generada por IA. Verifica con tu supervisor si tienes dudas.*"
+
+# Cache Configuration (AC#2, #3)
+RESPONSE_CACHE_TTL_SECONDS = 300  # 5 minutes
+RETRIEVAL_CACHE_TTL_SECONDS = 600  # 10 minutes
+
+# Global cache instances
+response_cache = CacheService(max_size=100)  # Response cache for identical queries
+retrieval_cache = CacheService(max_size=100)  # Retrieval cache for document searches
 
 
 class RAGService:
@@ -56,6 +66,8 @@ class RAGService:
 
         This is the main AC#3 requirement: rag_query(user_query: str, user_id: int) -> dict
 
+        Implements response caching (AC#2), detailed timing measurements (AC#1, #4, #8).
+
         Args:
             user_query: User's natural language query
             user_id: ID of the user making the query (for audit)
@@ -69,14 +81,39 @@ class RAGService:
             Dict with structure: {
                 answer: str,
                 sources: List[{document_id, title, relevance_score}],
-                response_time_ms: int,
+                response_time_ms: float,
+                retrieval_time_ms: float,
+                llm_time_ms: float,
+                cache_hit: bool,
                 documents_retrieved: int
             }
 
-        Implements AC#3, #4, #5, #6 (no docs case), #7 (disclaimer), #8 (metrics logging)
+        Implements AC#1, #2, #3, #4, #5, #6 (no docs case), #7 (disclaimer), #8 (metrics logging)
         """
 
-        pipeline_start = time.time()
+        pipeline_start = time.perf_counter()
+
+        # AC#2: Check response cache first (for identical queries)
+        cache_key = CacheService.generate_cache_key(user_query)
+        cached_response = response_cache.get(cache_key)
+        if cached_response is not None:
+            # Measure actual response time for this cache hit (should be <50ms)
+            cache_hit_time = (time.perf_counter() - pipeline_start) * 1000
+
+            logger.debug(json.dumps({
+                "event": "rag_cache_hit",
+                "user_id": user_id,
+                "cache_type": "response",
+                "query_hash": cache_key[:8],
+                "cache_hit_time_ms": round(cache_hit_time, 2)
+            }))
+
+            # Return cached response with current timing
+            # Create a new dict to avoid modifying the cached version
+            response_with_current_timing = dict(cached_response)
+            response_with_current_timing["response_time_ms"] = round(cache_hit_time, 2)
+            response_with_current_timing["cache_hit"] = True
+            return response_with_current_timing
         metrics = {
             "user_id": user_id,
             "original_query": user_query,
@@ -84,14 +121,18 @@ class RAGService:
             "documents_retrieved": 0,
             "avg_relevance_score": 0.0,
             "tokens_used": 0,
-            "llm_called": False
+            "llm_called": False,
+            "retrieval_time_ms": 0.0,
+            "llm_time_ms": 0.0,
+            "cache_hit": False
         }
 
         try:
             # ========== PHASE 1: RETRIEVAL ==========
             # AC#4: Retrieval phase recovers top-K documents
+            # AC#4 (timing): Measure retrieval phase with high precision
 
-            phase1_start = time.time()
+            phase1_start = time.perf_counter()  # Use perf_counter for high precision
 
             logger.info(json.dumps({
                 "event": "rag_phase_start",
@@ -108,8 +149,9 @@ class RAGService:
                 db=session
             )
 
-            phase1_time = time.time() - phase1_start
+            phase1_time = (time.perf_counter() - phase1_start) * 1000  # Convert to milliseconds
             metrics["phase_times"]["retrieval"] = phase1_time
+            metrics["retrieval_time_ms"] = phase1_time
 
             # Filter by relevance threshold (AC#6: skip if all < 0.1)
             relevant_docs = [doc for doc in search_results if doc.relevance_score >= RELEVANCE_THRESHOLD]
@@ -137,7 +179,7 @@ class RAGService:
                     "reason": "all_scores_below_threshold"
                 }))
 
-                total_time = (time.time() - pipeline_start) * 1000
+                total_time = (time.perf_counter() - pipeline_start) * 1000
 
                 # AC#7: Add disclaimer even in no-docs case
                 answer_no_docs = "Lo siento, no encontré documentos relevantes para tu consulta. Por favor, intenta formular la pregunta de otra manera." + RAG_DISCLAIMER
@@ -146,8 +188,14 @@ class RAGService:
                     "answer": answer_no_docs,
                     "sources": [],
                     "response_time_ms": round(total_time, 2),
+                    "retrieval_time_ms": round(metrics["retrieval_time_ms"], 2),
+                    "llm_time_ms": 0.0,
+                    "cache_hit": metrics["cache_hit"],
                     "documents_retrieved": 0
                 }
+
+                # AC#2: Cache this response too (no-docs case)
+                response_cache.set(cache_key, response, ttl_seconds=RESPONSE_CACHE_TTL_SECONDS)
 
                 logger.info(json.dumps({
                     "event": "rag_response_complete",
@@ -160,11 +208,12 @@ class RAGService:
 
             # ========== PHASE 2: CONTEXT CONSTRUCTION ==========
             # AC#4: Context Construction combines snippets into formatted context
+            # AC#5: Context pruning with token limit (2000 tokens max)
 
-            phase2_start = time.time()
+            phase2_start = time.perf_counter()
 
             context_parts = []
-            context_chars = 0
+            context_tokens = 0  # Token count (approximation: len/4)
             used_docs = []
 
             for i, doc in enumerate(relevant_docs, 1):
@@ -173,35 +222,54 @@ class RAGService:
                 if doc.snippet:
                     doc_context += f"{doc.snippet}\n"
 
-                # Check if adding this would exceed context limit
-                if context_chars + len(doc_context) > RAG_CONTEXT_LIMIT:
-                    logger.info(json.dumps({
-                        "event": "rag_context_limit_reached",
-                        "documents_included": len(used_docs),
-                        "context_chars": context_chars
-                    }))
+                # Estimate token count (rough: 1 token ≈ 4 characters)
+                estimated_doc_tokens = len(doc_context) / 4
+
+                # Check if adding this document would exceed token limit
+                if context_tokens + estimated_doc_tokens > MAX_CONTEXT_TOKENS:
+                    # Can we fit a truncated version?
+                    available_tokens = MAX_CONTEXT_TOKENS - context_tokens
+                    if available_tokens > 50:  # At least 50 tokens remaining
+                        # Truncate the snippet to fit available tokens
+                        available_chars = int(available_tokens * 4)
+                        truncated_context = doc_context[:available_chars]
+                        context_parts.append(truncated_context)
+                        context_tokens += available_tokens
+
+                        logger.info(json.dumps({
+                            "event": "rag_context_pruned_partial",
+                            "documents_included": len(used_docs) + 1,
+                            "total_tokens": MAX_CONTEXT_TOKENS,
+                            "truncated_doc_index": i
+                        }))
+                    else:
+                        logger.info(json.dumps({
+                            "event": "rag_context_limit_reached",
+                            "documents_included": len(used_docs),
+                            "context_tokens": context_tokens
+                        }))
                     break
 
                 context_parts.append(doc_context)
-                context_chars += len(doc_context)
+                context_tokens += estimated_doc_tokens
                 used_docs.append(doc)
 
             context = "\n".join(context_parts)
 
-            phase2_time = time.time() - phase2_start
+            phase2_time = (time.perf_counter() - phase2_start) * 1000
             metrics["phase_times"]["context_construction"] = phase2_time
 
             logger.info(json.dumps({
                 "event": "rag_context_constructed",
                 "documents_included": len(used_docs),
-                "context_chars": context_chars,
-                "phase_time_ms": round(phase2_time * 1000, 2)
+                "context_tokens": context_tokens,
+                "phase_time_ms": round(phase2_time, 2)
             }))
 
             # ========== PHASE 3: AUGMENTATION ==========
             # AC#4: Augmentation constructs prompt with context
 
-            phase3_start = time.time()
+            phase3_start = time.perf_counter()
 
             # Build augmented prompt with retrieved context
             augmented_prompt = RAGService._build_augmented_prompt(
@@ -209,7 +277,7 @@ class RAGService:
                 context=context
             )
 
-            phase3_time = time.time() - phase3_start
+            phase3_time = (time.perf_counter() - phase3_start) * 1000
             metrics["phase_times"]["augmentation"] = phase3_time
 
             logger.info(json.dumps({
@@ -220,8 +288,9 @@ class RAGService:
 
             # ========== PHASE 4: GENERATION ==========
             # AC#4: Generation sends augmented prompt to LLM
+            # AC#4 (timing): Measure LLM inference phase with high precision
 
-            phase4_start = time.time()
+            phase4_start = time.perf_counter()
 
             logger.info(json.dumps({
                 "event": "rag_generation_start",
@@ -236,8 +305,9 @@ class RAGService:
                 max_tokens=max_tokens
             )
 
-            phase4_time = time.time() - phase4_start
+            phase4_time = (time.perf_counter() - phase4_start) * 1000
             metrics["phase_times"]["generation"] = phase4_time
+            metrics["llm_time_ms"] = phase4_time  # LLM time is the main latency contributor
             metrics["llm_called"] = True
 
             # Extract tokens if available
@@ -259,7 +329,7 @@ class RAGService:
             # AC#5: Structure: {answer, sources[], response_time_ms, documents_retrieved}
             # AC#7: Disclaimer required in all responses
 
-            phase5_start = time.time()
+            phase5_start = time.perf_counter()
 
             # Add disclaimer to answer (AC#7)
             final_answer = answer_text + RAG_DISCLAIMER
@@ -274,18 +344,24 @@ class RAGService:
                 for doc in used_docs
             ]
 
-            phase5_time = time.time() - phase5_start
+            phase5_time = (time.perf_counter() - phase5_start) * 1000
             metrics["phase_times"]["response_formatting"] = phase5_time
 
-            total_time = (time.time() - pipeline_start) * 1000
+            total_time = (time.perf_counter() - pipeline_start) * 1000
 
             # ========== BUILD FINAL RESPONSE ==========
             response = {
                 "answer": final_answer,
                 "sources": sources,
                 "response_time_ms": round(total_time, 2),
+                "retrieval_time_ms": round(metrics["retrieval_time_ms"], 2),
+                "llm_time_ms": round(metrics["llm_time_ms"], 2),
+                "cache_hit": metrics["cache_hit"],
                 "documents_retrieved": len(used_docs)
             }
+
+            # AC#2: Store response in cache for future identical queries
+            response_cache.set(cache_key, response, ttl_seconds=RESPONSE_CACHE_TTL_SECONDS)
 
             # ========== AC#8: METRICS LOGGING ==========
             # Log comprehensive metrics for monitoring
@@ -312,11 +388,14 @@ class RAGService:
                 "error": "LLM service timeout"
             }))
 
-            total_time = (time.time() - pipeline_start) * 1000
+            total_time = (time.perf_counter() - pipeline_start) * 1000
             return {
                 "answer": f"La consulta tardó demasiado en procesarse. {RAG_DISCLAIMER}",
                 "sources": [],
                 "response_time_ms": round(total_time, 2),
+                "retrieval_time_ms": round(metrics.get("retrieval_time_ms", 0), 2),
+                "llm_time_ms": round(metrics.get("llm_time_ms", 0), 2),
+                "cache_hit": False,
                 "documents_retrieved": 0
             }
 
@@ -329,11 +408,14 @@ class RAGService:
                 "error_message": str(e)
             }))
 
-            total_time = (time.time() - pipeline_start) * 1000
+            total_time = (time.perf_counter() - pipeline_start) * 1000
             return {
                 "answer": f"Hubo un error procesando tu consulta. {RAG_DISCLAIMER}",
                 "sources": [],
                 "response_time_ms": round(total_time, 2),
+                "retrieval_time_ms": round(metrics.get("retrieval_time_ms", 0), 2),
+                "llm_time_ms": round(metrics.get("llm_time_ms", 0), 2),
+                "cache_hit": False,
                 "documents_retrieved": 0
             }
 

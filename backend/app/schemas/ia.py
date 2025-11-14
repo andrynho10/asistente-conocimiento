@@ -17,6 +17,9 @@ class HealthResponse(BaseModel):
 
     Provides information about Ollama service availability,
     model status, and version information.
+
+    Task 10 Addition:
+    - Includes cache_stats with cache performance metrics (AC#2)
     """
     model_config = ConfigDict(
         json_schema_extra={
@@ -26,7 +29,14 @@ class HealthResponse(BaseModel):
                     "model": "llama3.1:8b-instruct-q4_K_M",
                     "ollama_version": "0.1.20",
                     "available_at": "2025-11-13T10:30:00Z",
-                    "response_time_ms": 125.5
+                    "response_time_ms": 125.5,
+                    "cache_stats": {
+                        "cache_size": 45,
+                        "hit_rate": 0.35,
+                        "memory_usage_mb": 12.5,
+                        "response_cache_size": 25,
+                        "retrieval_cache_size": 20
+                    }
                 },
                 {
                     "status": "unavailable",
@@ -68,6 +78,17 @@ class HealthResponse(BaseModel):
         None,
         description="Error message if service is unavailable",
         examples=["Connection refused", "Request timeout"]
+    )
+    cache_stats: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Cache statistics (Task 10: AC#2). Includes cache_size (total entries), hit_rate (0.0-1.0), memory_usage_mb (estimated), and separate counts for response and retrieval caches.",
+        examples=[{
+            "cache_size": 45,
+            "hit_rate": 0.35,
+            "memory_usage_mb": 12.5,
+            "response_cache_size": 25,
+            "retrieval_cache_size": 20
+        }]
     )
 
 
