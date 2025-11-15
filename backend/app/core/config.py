@@ -31,6 +31,20 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", description="Algoritmo JWT")
     jwt_expiration_hours: int = Field(default=24, description="Horas de expiración JWT")
 
+    # Account Lockout Configuration (Story 5.2)
+    max_failed_login_attempts: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Máximo número de intentos fallidos antes de bloquear cuenta (Story 5.2)"
+    )
+    account_lockout_minutes: int = Field(
+        default=15,
+        ge=1,
+        le=1440,
+        description="Minutos de bloqueo de cuenta después de máximo intentos (Story 5.2)"
+    )
+
     # Ollama / LLM Configuration
     ollama_host: str = Field(
         default="http://localhost:11434",

@@ -1121,8 +1121,8 @@ async def deactivate_user(
         )
 
 
-# PATCH /api/admin/users/{user_id}/unlock - Unlock user account
-@router.patch("/users/{user_id}/unlock", status_code=status.HTTP_200_OK)
+# POST /api/admin/users/{user_id}/unlock - Unlock user account (Story 5.2)
+@router.post("/users/{user_id}/unlock", status_code=status.HTTP_200_OK)
 async def unlock_user(
     user_id: int,
     db: Session = Depends(get_session),
@@ -1132,10 +1132,16 @@ async def unlock_user(
     """
     Unlock a user account (reset failed login attempts and locked_until).
 
+    AC4: Desbloqueo Manual por Admin - POST /api/admin/users/{user_id}/unlock
+    - Resetea `failed_login_attempts = 0` y `locked_until = NULL`
+    - Response 200: `{"message": "Cuenta desbloqueada exitosamente"}`
+    - Audita como "ACCOUNT_UNLOCKED"
+
     Path parameter: user_id
 
     Returns 200 with confirmation message
     Returns 404 if user not found
+    Returns 403 if not admin
     """
     try:
         # Get user
@@ -1146,7 +1152,7 @@ async def unlock_user(
                 detail={"code": "NOT_FOUND", "message": "User not found"}
             )
 
-        # Unlock user
+        # Unlock user - resetear failed_login_attempts y locked_until
         user.failed_login_attempts = 0
         user.locked_until = None
         user.updated_at = datetime.now(timezone.utc)
@@ -1154,10 +1160,10 @@ async def unlock_user(
         db.add(user)
         db.commit()
 
-        # Create audit log
+        # Create audit log - AC5: ACCOUNT_UNLOCKED
         audit_log = AuditLog(
             user_id=admin_user.id,
-            action="USER_UNLOCKED",
+            action="ACCOUNT_UNLOCKED",
             resource_type="user",
             resource_id=user_id,
             details=json.dumps({
@@ -1172,11 +1178,13 @@ async def unlock_user(
         logger.info(json.dumps({
             "event": "admin_unlock_user",
             "user_id": user_id,
+            "username": user.username,
             "admin_id": admin_user.id
         }))
 
+        # AC4: Response 200 con mensaje
         return {
-            "message": "User account unlocked successfully",
+            "message": "Cuenta desbloqueada exitosamente",
             "user_id": user_id
         }
 
