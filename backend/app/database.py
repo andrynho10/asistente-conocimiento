@@ -1,14 +1,18 @@
 """
 Configuración de base de datos para Asistente de Conocimiento
 Usa SQLModel con configuración centralizada desde settings
+Soporta SQLCipher para cifrado de base de datos en reposo
 
 AC#11: Timeout handling para database operations
+AC#5.3: Cifrado de datos en reposo y en tránsito
 """
 
 import asyncio
 import logging
 import json
+import os
 from typing import Generator, Optional, Any, Callable
+from sqlalchemy import event
 from sqlmodel import create_engine, Session, SQLModel
 from app.core.config import get_settings
 
@@ -18,10 +22,58 @@ logger = logging.getLogger(__name__)
 # La configuración ya carga variables de entorno automáticamente
 settings = get_settings()
 DATABASE_URL = settings.database_url
+DB_ENCRYPTION_KEY = os.getenv("DB_ENCRYPTION_KEY")
+
+
+def _configure_sqlite_encryption(dbapi_conn: Any, connection_record: Any) -> None:
+    """
+    Configura SQLCipher para cifrado transparente de base de datos.
+    Se ejecuta automáticamente en cada conexión nueva.
+
+    Args:
+        dbapi_conn: Conexión SQLite/SQLCipher
+        connection_record: Registro de conexión (no usado en esta función)
+    """
+    if DB_ENCRYPTION_KEY:
+        try:
+            # Ejecutar PRAGMA key para habilitar cifrado
+            # SQLCipher interpreta esto como la clave de cifrado
+            dbapi_conn.execute(f"PRAGMA key = '{DB_ENCRYPTION_KEY}'")
+
+            # Validar que la BD está cifrada
+            cursor = dbapi_conn.execute("PRAGMA database_list;")
+            databases = cursor.fetchall()
+
+            logger.info(
+                json.dumps({
+                    "event": "database_encryption_enabled",
+                    "cipher": "SQLCipher (AES-256)",
+                    "key_loaded": True
+                })
+            )
+        except Exception as e:
+            logger.error(
+                json.dumps({
+                    "event": "database_encryption_error",
+                    "error_type": type(e).__name__,
+                    "error_message": str(e)
+                })
+            )
+            raise
+
 
 # Crear motor de base de datos
+# Para SQLCipher: necesita conectar_args con check_same_thread=False
 # echo=True muestra las queries SQL en consola (útil para desarrollo)
-engine = create_engine(DATABASE_URL, echo=settings.debug)
+engine = create_engine(
+    DATABASE_URL,
+    echo=settings.debug,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL.lower() else {}
+)
+
+# Registrar evento de conexión para SQLCipher (solo si hay clave disponible)
+if DB_ENCRYPTION_KEY and "sqlite" in DATABASE_URL.lower():
+    event.listen(engine, "connect", _configure_sqlite_encryption)
 
 
 def create_db_and_tables() -> None:

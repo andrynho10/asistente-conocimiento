@@ -3,12 +3,18 @@ from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
+import base64
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
     """
     Configuración centralizada de la aplicación usando Pydantic BaseSettings.
     Carga variables desde archivo .env y las valida.
+
+    Story 5.3: Soporte para cifrado SQLCipher y configuración HTTPS
     """
 
     model_config = ConfigDict(
@@ -22,6 +28,16 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="sqlite:///./database/asistente_conocimiento.db",
         description="URL de conexión a la base de datos"
+    )
+
+    # Encryption Configuration (Story 5.3)
+    db_encryption_key: Optional[str] = Field(
+        default=None,
+        description="Clave de cifrado para SQLCipher (base64-encoded, 32 bytes para AES-256)"
+    )
+    environment: str = Field(
+        default="development",
+        description="Entorno de ejecución para configuración de seguridad (development|production)"
     )
 
     # Security Configuration - CRITICAL VARIABLES
@@ -202,10 +218,55 @@ class Settings(BaseSettings):
             )
         return v.lower()
 
+    @field_validator('environment')
+    @classmethod
+    def validate_https_environment(cls, v):
+        """Validador para entorno HTTPS (Story 5.3)"""
+        valid_envs = ['development', 'production']
+        if v.lower() not in valid_envs:
+            raise ValueError(
+                f'ENVIRONMENT debe ser uno de: {", ".join(valid_envs)}. Valor actual: {v}'
+            )
+        return v.lower()
+
+    @field_validator('db_encryption_key')
+    @classmethod
+    def validate_db_encryption_key(cls, v):
+        """Validador para clave de cifrado SQLCipher (Story 5.3)"""
+        if v is None:
+            # En desarrollo, es opcional pero recomendado
+            return v
+
+        # Validar que sea base64 válido
+        try:
+            decoded = base64.b64decode(v)
+            key_bytes = len(decoded)
+
+            # Validar tamaño mínimo: 32 bytes (AES-256)
+            if key_bytes < 32:
+                raise ValueError(
+                    f'DB_ENCRYPTION_KEY debe tener mínimo 32 bytes (AES-256). '
+                    f'Actual: {key_bytes} bytes. '
+                    f'Genera una clave con: python scripts/generate_encryption_keys.py'
+                )
+
+            logger.info(
+                f"Clave de cifrado SQLCipher validada: {key_bytes} bytes ({key_bytes * 8} bits)"
+            )
+            return v
+
+        except Exception as e:
+            raise ValueError(
+                f'DB_ENCRYPTION_KEY debe ser válido base64. Error: {str(e)}. '
+                f'Genera una clave con: python scripts/generate_encryption_keys.py'
+            )
+
     def validate_all_settings(self) -> None:
         """
         Método de validación completo que se ejecuta al inicio.
         Lanza ValueError si alguna validación crítica falla.
+
+        Story 5.3: Validación de cifrado de base de datos y HTTPS
         """
         try:
             # Forzar validación de todos los campos
@@ -213,6 +274,15 @@ class Settings(BaseSettings):
             _ = self.database_url
             _ = self.ollama_host
             _ = self.fastapi_env
+            _ = self.environment
+            _ = self.db_encryption_key
+
+            # Validaciones adicionales de Story 5.3
+            if self.db_encryption_key is None:
+                logger.warning(
+                    "⚠️  DB_ENCRYPTION_KEY no configurada. Base de datos NO estará cifrada. "
+                    "Para producción, ejecutar: python scripts/generate_encryption_keys.py"
+                )
 
         except ValueError as e:
             raise ValueError(f"❌ Error de configuración: {e}")

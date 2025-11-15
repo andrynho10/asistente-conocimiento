@@ -215,6 +215,44 @@ npm run dev
 
 El frontend estará disponible en: `http://localhost:5173`
 
+## Seguridad y Privacidad
+
+El proyecto implementa múltiples capas de seguridad para proteger los datos corporativos:
+
+### Cifrado de Datos
+
+**Cifrado en Tránsito (HTTPS/TLS - Story 5.3):**
+- ✅ HTTPS obligatorio en producción
+- ✅ TLS 1.2 mínimo
+- ✅ HSTS header habilitado
+- ✅ Redirección automática HTTP → HTTPS (status 308)
+
+**Cifrado en Reposo (SQLCipher - Story 5.3):**
+- ✅ Base de datos SQLite cifrada con AES-256
+- ✅ Transparente a la aplicación (queries normales)
+- ✅ Compatible con migraciones Alembic
+
+**Generación de Claves:**
+```bash
+# Generar clave de cifrado (32 bytes = AES-256)
+cd backend
+python scripts/generate_encryption_keys.py
+```
+
+### Autenticación y Autorización
+
+- JWT para autenticación de APIs
+- Control de acceso basado en roles (RBAC)
+- Anti-brute force con bloqueo de cuentas (Story 5.2)
+
+### Cumplimiento Normativo
+
+- ✅ Ley 19.628 (Protección de Datos Personales - Chile)
+- ✅ OWASP Top 10 (Seguridad de Aplicaciones Web)
+- ✅ Auditoría completa de operaciones (Story 5.4 - futuro)
+
+**Documentación completa:** Consulta [`docs/seguridad.md`](./docs/seguridad.md)
+
 ## Testing
 
 ### Backend

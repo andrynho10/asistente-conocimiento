@@ -13,6 +13,7 @@ from app.routes.users import router as users_router
 from app.auth.models import HealthResponse
 from app.core.config import get_settings
 from app.services.llm_service import get_llm_service
+from app.middleware.https_redirect import HTTPSRedirectMiddleware
 # Ensure models are imported so SQLModel creates the tables
 from app.models.query import Query, PerformanceMetric  # noqa: F401
 from app.exceptions import (
@@ -65,8 +66,18 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware configurado desde settings (obtenemos settings después de la configuración)
+# Obtener configuración
 settings = get_settings()
+
+# HTTPS Redirect Middleware (Story 5.3)
+# Agregar ANTES de CORS para que funcione correctamente con redirects
+app.add_middleware(
+    HTTPSRedirectMiddleware,
+    environment=settings.environment,
+    https_enabled=True
+)
+
+# CORS middleware configurado desde settings
 allowed_origins_list = [origin.strip() for origin in settings.allowed_origins.split(",")]
 
 app.add_middleware(
