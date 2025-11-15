@@ -35,6 +35,9 @@ class User(UserBase, table=True):
     hashed_password: str = Field(max_length=255)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_login: datetime | None = Field(default=None)
+    failed_login_attempts: int = Field(default=0, ge=0)
+    locked_until: datetime | None = Field(default=None)
 
     # Relaciones
     documents: List["Document"] = Relationship(back_populates="user")
@@ -51,6 +54,9 @@ class UserRead(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    last_login: datetime | None = None
+    failed_login_attempts: int = 0
+    locked_until: datetime | None = None
 
 
 class UserUpdate(SQLModel):

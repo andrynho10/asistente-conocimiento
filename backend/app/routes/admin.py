@@ -35,6 +35,8 @@ from app.models import (
 from app.models.generated_content import ContentType, GeneratedContentRead
 from app.models.quiz import QuizAttempt
 from app.schemas.admin import GeneratedContentValidateRequest
+from app.core.security import get_password_hash, verify_password
+from app.utils.validators import validate_password
 
 logger = logging.getLogger(__name__)
 
@@ -729,4 +731,465 @@ async def export_content(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "INTERNAL_ERROR", "message": "Error exporting content"}
+        )
+
+
+# ==================== USER MANAGEMENT ENDPOINTS ====================
+
+
+# POST /api/admin/users - Create a new user
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+async def create_user(
+    username: str,
+    password: str,
+    full_name: str,
+    email: str,
+    role: str = "user",
+    db: Session = Depends(get_session),
+    admin_user: User = Depends(require_admin),
+    request: Request = None
+):
+    """
+    Create a new user account.
+
+    Headers: Authorization: Bearer {admin_token}
+    Body parameters:
+    - username: str (3-50 chars, alphanumeric + underscore, must start with letter)
+    - password: str (8+ chars, uppercase, lowercase, digit, special char)
+    - full_name: str (1-255 chars)
+    - email: str (valid email format)
+    - role: str ("admin" or "user", default "user")
+
+    Returns 201 with created user data (without password_hash)
+    Returns 400 if validation fails
+    Returns 409 if username or email already exists
+    """
+    try:
+        # Validate password
+        is_valid, error_msg = validate_password(password, username)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "WEAK_PASSWORD", "message": error_msg}
+            )
+
+        # Check if username already exists
+        existing_user = db.exec(select(User).where(User.username == username)).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "USERNAME_EXISTS", "message": "Username already exists"}
+            )
+
+        # Check if email already exists
+        existing_email = db.exec(select(User).where(User.email == email)).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "EMAIL_EXISTS", "message": "Email already exists"}
+            )
+
+        # Validate role
+        try:
+            user_role = UserRole(role.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_ROLE", "message": f"Role must be 'admin' or 'user'"}
+            )
+
+        # Create new user
+        new_user = User(
+            username=username,
+            hashed_password=get_password_hash(password),
+            full_name=full_name,
+            email=email,
+            role=user_role,
+            is_active=True,
+            failed_login_attempts=0
+        )
+
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
+        # Create audit log
+        audit_log = AuditLog(
+            user_id=admin_user.id,
+            action="USER_CREATED",
+            resource_type="user",
+            resource_id=new_user.id,
+            details=json.dumps({
+                "username": username,
+                "email": email,
+                "role": role,
+                "full_name": full_name
+            }),
+            ip_address=request.client.host if request else None
+        )
+        db.add(audit_log)
+        db.commit()
+
+        logger.info(json.dumps({
+            "event": "admin_create_user",
+            "user_id": new_user.id,
+            "username": username,
+            "admin_id": admin_user.id
+        }))
+
+        return {
+            "id": new_user.id,
+            "username": new_user.username,
+            "full_name": new_user.full_name,
+            "email": new_user.email,
+            "role": new_user.role.value,
+            "is_active": new_user.is_active,
+            "created_at": new_user.created_at.isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "admin_create_user_error",
+            "username": username,
+            "error": str(e),
+            "admin_id": admin_user.id
+        }))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "INTERNAL_ERROR", "message": "Error creating user"}
+        )
+
+
+# GET /api/admin/users - List all users with pagination
+@router.get("/users")
+async def list_users(
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_session),
+    admin_user: User = Depends(require_admin)
+):
+    """
+    List all users with pagination.
+
+    Query parameters:
+    - limit: int (1-100, default 20)
+    - offset: int (default 0)
+
+    Returns 200 with paginated list of users (no password_hash)
+    """
+    try:
+        # Get total count
+        total = db.exec(select(func.count()).select_from(User)).one()
+
+        # Get paginated results
+        query = select(User).offset(offset).limit(limit)
+        users = db.exec(query).all()
+
+        logger.info(json.dumps({
+            "event": "admin_list_users",
+            "total": total,
+            "returned": len(users),
+            "admin_id": admin_user.id
+        }))
+
+        return {
+            "total": total,
+            "users": [
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "full_name": user.full_name,
+                    "email": user.email,
+                    "role": user.role.value,
+                    "is_active": user.is_active,
+                    "created_at": user.created_at.isoformat(),
+                    "last_login": user.last_login.isoformat() if user.last_login else None
+                }
+                for user in users
+            ],
+            "limit": limit,
+            "offset": offset
+        }
+
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "admin_list_users_error",
+            "error": str(e),
+            "admin_id": admin_user.id
+        }))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "INTERNAL_ERROR", "message": "Error listing users"}
+        )
+
+
+# PUT /api/admin/users/{user_id} - Update user
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    full_name: str = None,
+    email: str = None,
+    role: str = None,
+    is_active: bool = None,
+    db: Session = Depends(get_session),
+    admin_user: User = Depends(require_admin),
+    request: Request = None
+):
+    """
+    Update user information.
+
+    Path parameter: user_id
+
+    Body parameters (all optional):
+    - full_name: str
+    - email: str
+    - role: str ("admin" or "user")
+    - is_active: bool
+
+    Note: username cannot be changed
+
+    Returns 200 with updated user data
+    Returns 404 if user not found
+    """
+    try:
+        # Get user
+        user = db.exec(select(User).where(User.id == user_id)).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "NOT_FOUND", "message": "User not found"}
+            )
+
+        # Track changes for audit log
+        changes = {}
+
+        # Update fields if provided
+        if full_name is not None:
+            changes["full_name"] = full_name
+            user.full_name = full_name
+
+        if email is not None:
+            # Check email uniqueness (if different from current)
+            if email != user.email:
+                existing_email = db.exec(select(User).where(User.email == email)).first()
+                if existing_email:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail={"code": "EMAIL_EXISTS", "message": "Email already exists"}
+                    )
+            changes["email"] = email
+            user.email = email
+
+        if role is not None:
+            # Validate role
+            try:
+                user_role = UserRole(role.lower())
+                changes["role"] = role
+                user.role = user_role
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"code": "INVALID_ROLE", "message": "Role must be 'admin' or 'user'"}
+                )
+
+        if is_active is not None:
+            changes["is_active"] = is_active
+            user.is_active = is_active
+
+        user.updated_at = datetime.now(timezone.utc)
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        # Create audit log
+        audit_log = AuditLog(
+            user_id=admin_user.id,
+            action="USER_UPDATED",
+            resource_type="user",
+            resource_id=user_id,
+            details=json.dumps(changes),
+            ip_address=request.client.host if request else None
+        )
+        db.add(audit_log)
+        db.commit()
+
+        logger.info(json.dumps({
+            "event": "admin_update_user",
+            "user_id": user_id,
+            "changes": changes,
+            "admin_id": admin_user.id
+        }))
+
+        return {
+            "id": user.id,
+            "username": user.username,
+            "full_name": user.full_name,
+            "email": user.email,
+            "role": user.role.value,
+            "is_active": user.is_active,
+            "updated_at": user.updated_at.isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "admin_update_user_error",
+            "user_id": user_id,
+            "error": str(e),
+            "admin_id": admin_user.id
+        }))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "INTERNAL_ERROR", "message": "Error updating user"}
+        )
+
+
+# PATCH /api/admin/users/{user_id}/deactivate - Deactivate user (soft delete)
+@router.patch("/users/{user_id}/deactivate", status_code=status.HTTP_200_OK)
+async def deactivate_user(
+    user_id: int,
+    db: Session = Depends(get_session),
+    admin_user: User = Depends(require_admin),
+    request: Request = None
+):
+    """
+    Deactivate a user account (soft delete).
+
+    Path parameter: user_id
+
+    Returns 200 with confirmation message
+    Returns 404 if user not found
+    """
+    try:
+        # Get user
+        user = db.exec(select(User).where(User.id == user_id)).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "NOT_FOUND", "message": "User not found"}
+            )
+
+        # Deactivate user
+        user.is_active = False
+        user.updated_at = datetime.now(timezone.utc)
+
+        db.add(user)
+        db.commit()
+
+        # Create audit log
+        audit_log = AuditLog(
+            user_id=admin_user.id,
+            action="USER_DEACTIVATED",
+            resource_type="user",
+            resource_id=user_id,
+            details=json.dumps({
+                "username": user.username,
+                "email": user.email
+            }),
+            ip_address=request.client.host if request else None
+        )
+        db.add(audit_log)
+        db.commit()
+
+        logger.info(json.dumps({
+            "event": "admin_deactivate_user",
+            "user_id": user_id,
+            "admin_id": admin_user.id
+        }))
+
+        return {
+            "message": "User deactivated successfully",
+            "user_id": user_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "admin_deactivate_user_error",
+            "user_id": user_id,
+            "error": str(e),
+            "admin_id": admin_user.id
+        }))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "INTERNAL_ERROR", "message": "Error deactivating user"}
+        )
+
+
+# PATCH /api/admin/users/{user_id}/unlock - Unlock user account
+@router.patch("/users/{user_id}/unlock", status_code=status.HTTP_200_OK)
+async def unlock_user(
+    user_id: int,
+    db: Session = Depends(get_session),
+    admin_user: User = Depends(require_admin),
+    request: Request = None
+):
+    """
+    Unlock a user account (reset failed login attempts and locked_until).
+
+    Path parameter: user_id
+
+    Returns 200 with confirmation message
+    Returns 404 if user not found
+    """
+    try:
+        # Get user
+        user = db.exec(select(User).where(User.id == user_id)).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "NOT_FOUND", "message": "User not found"}
+            )
+
+        # Unlock user
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        user.updated_at = datetime.now(timezone.utc)
+
+        db.add(user)
+        db.commit()
+
+        # Create audit log
+        audit_log = AuditLog(
+            user_id=admin_user.id,
+            action="USER_UNLOCKED",
+            resource_type="user",
+            resource_id=user_id,
+            details=json.dumps({
+                "username": user.username,
+                "failed_attempts_reset": True
+            }),
+            ip_address=request.client.host if request else None
+        )
+        db.add(audit_log)
+        db.commit()
+
+        logger.info(json.dumps({
+            "event": "admin_unlock_user",
+            "user_id": user_id,
+            "admin_id": admin_user.id
+        }))
+
+        return {
+            "message": "User account unlocked successfully",
+            "user_id": user_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "admin_unlock_user_error",
+            "user_id": user_id,
+            "error": str(e),
+            "admin_id": admin_user.id
+        }))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "INTERNAL_ERROR", "message": "Error unlocking user"}
         )
